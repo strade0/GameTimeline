@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Module Gantt Chart</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f4f7fa;
+            color: #333;
+            margin: 0;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            background-color: #fff;
+            border-bottom: 1px solid #dfe6e9;
+        }
+        .controls label {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .controls input[type="date"], .controls button {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+        .controls button {
+            cursor: pointer;
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db;
+            transition: background-color 0.2s;
+        }
+        .controls button:hover {
+            background-color: #2980b9;
+        }
+        .container {
+            width: 95%;
+            margin: 20px auto;
+            overflow-x: auto;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .gantt-chart {
+            display: grid;
+            border: 1px solid #dfe6e9;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #fff;
+            min-width: 1800px;
+        }
+        .gantt-row {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            border-bottom: 1px solid #dfe6e9;
+        }
+        .gantt-row:last-child {
+            border-bottom: none;
+        }
+        .gantt-label, .gantt-header-label {
+            padding: 15px;
+            font-weight: bold;
+            background-color: #ecf0f1;
+            border-right: 1px solid #dfe6e9;
+            text-align: right;
+            white-space: nowrap;
+            font-size: 14px;
+        }
+        .gantt-label.sub-task {
+            padding-right: 30px;
+            font-weight: normal;
+            background-color: #f8f9fa;
+        }
+        .gantt-bars {
+            position: relative;
+            background-size: calc(100% / 37) 100%; /* Updated for 37 weeks */
+            background-image: linear-gradient(to right, #dfe6e9 1px, transparent 1px);
+        }
+        .gantt-header .gantt-bars {
+            position: relative;
+        }
+        .gantt-header-timeline {
+             display: grid;
+             grid-template-columns: repeat(37, 1fr); /* Updated for 37 weeks */
+             background-color: #ecf0f1;
+             height: 50px;
+             align-items: center;
+        }
+        .gantt-header-timeline span {
+            font-size: 11px;
+            font-weight: bold;
+            color: #6c757d;
+            text-align: center;
+            border-left: 1px solid #dfe6e9;
+            white-space: nowrap;
+        }
+        .bar {
+            position: absolute;
+            height: 60%;
+            top: 20%;
+            border-radius: 5px;
+            transition: opacity 0.2s, transform 0.2s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            box-sizing: border-box;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
+        .bar:hover {
+            opacity: 1 !important;
+            transform: scaleY(1.1);
+        }
+        .bar-main {
+             height: 100%;
+             top: 0;
+             opacity: 0.85;
+        }
+         .bar-sub {
+             height: 50%;
+             top: 25%;
+             opacity: 0.6;
+        }
+        #today-marker {
+            position: absolute;
+            top: 0;
+            height: 2000px;
+            width: 3px;
+            background-color: rgba(231, 76, 60, 0.8);
+            z-index: 10;
+            border-radius: 2px;
+            display: none;
+            pointer-events: none;
+        }
+        #tooltip {
+            position: fixed;
+            display: none;
+            padding: 10px;
+            background-color: #2c3e50;
+            color: white;
+            border-radius: 6px;
+            font-size: 12px;
+            z-index: 20;
+            pointer-events: none;
+            white-space: pre;
+            line-height: 1.6;
+        }
+        .color-1 { background-color: #3498db; }
+        .color-2 { background-color: #2ecc71; }
+        .color-3 { background-color: #e74c3c; }
+        .color-4 { background-color: #9b59b6; }
+        .color-5 { background-color: #f39c12; }
+    </style>
+</head>
+<body>
+
+<div id="tooltip"></div>
+
+<div class="controls">
+    <label for="date-setter">Set Custom Date:</label>
+    <input type="date" id="date-setter">
+    <button id="set-today-btn">Set to Today</button>
+</div>
+
+<div class="container">
+    <h1>Interactive Module Timeline</h1>
+    <div class="gantt-chart">
+
+        <div class="gantt-row gantt-header">
+            <div class="gantt-header-label">Module / Task</div>
+            <div class="gantt-bars">
+                <div id="today-marker"></div>
+                <div class="gantt-header-timeline">
+                    <!-- Added Sep 8 -->
+                    <span>Sep 8</span><span>Sep 15</span><span>Sep 22</span><span>Sep 29</span><span>Oct 6</span><span>Oct 13</span><span>Oct 20</span><span>Oct 27</span><span>Nov 3</span><span>Nov 10</span><span>Nov 17</span><span>Nov 24</span><span>Dec 1</span><span>Dec 8</span><span>Dec 15</span><span>Dec 22</span><span>Dec 29</span><span>Jan 5</span><span>Jan 12</span><span>Jan 19</span><span>Jan 26</span><span>Feb 2</span><span>Feb 9</span><span>Feb 16</span><span>Feb 23</span><span>Mar 2</span><span>Mar 9</span><span>Mar 16</span><span>Mar 23</span><span>Mar 30</span><span>Apr 6</span><span>Apr 13</span><span>Apr 20</span><span>Apr 27</span><span>May 4</span><span>May 11</span><span>May 18</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODULE 13 -->
+        <div class="gantt-row">
+            <div class="gantt-label">Mod 13: Dissertation</div>
+            <div class="gantt-bars">
+                <div class="bar bar-main color-1" data-start="2025-09-17" data-end="2026-04-13" data-tooltip="Module 13: GD6D-Dissertation&#10;Total Credits: 30&#10;Overall Deadline: 13/04/2026">13/04/2026</div>
+            </div>
+        </div>
+        <div class="gantt-row">
+            <div class="gantt-label sub-task">Proposal</div>
+            <div class="gantt-bars">
+                 <div class="bar bar-sub color-1" data-start="2025-09-17" data-end="2025-11-14" data-tooltip="Task: Proposal&#10;Draft Due: 12/11/2025&#10;Final Due: 14/11/2025&#10;Marker: G Clarke&#10;Moderator: S Rayner">14/11/2025</div>
+            </div>
+        </div>
+        <div class="gantt-row">
+            <div class="gantt-label sub-task">Dissertation</div>
+            <div class="gantt-bars">
+                 <div class="bar bar-sub color-1" data-start="2025-09-17" data-end="2026-04-13" data-tooltip="Task: Dissertation&#10;Draft Due: 23/03/2026&#10;Final Due: 13/04/2026&#10;Marker: G Clarke&#10;Moderator: S Rayner">13/04/2026</div>
+            </div>
+        </div>
+
+        <!-- MODULE 14 -->
+        <div class="gantt-row">
+            <div class="gantt-label">Mod 14: Adv. HCI</div>
+            <div class="gantt-bars">
+                <div class="bar bar-main color-2" data-start="2025-09-17" data-end="2026-01-28" data-tooltip="Module 14: GD6AHCI Advanced Human Computer Interface&#10;Total Credits: 20&#10;Overall Deadline: 28/01/2026">28/01/2026</div>
+            </div>
+        </div>
+        <div class="gantt-row">
+            <div class="gantt-label sub-task">HCI Team Work</div>
+            <div class="gantt-bars">
+                <div class="bar bar-sub color-2" data-start="2025-09-17" data-end="2026-01-28" data-tooltip="Task: HCI Team Design and Development&#10;Draft Due: 05/11/2025&#10;Final Due: 28/01/2026&#10;Marker: Chris Butler&#10;Moderator: S Rayner">28/01/2026</div>
+            </div>
+        </div>
+        <div class="gantt-row">
+            <div class="gantt-label sub-task">Team Presentation</div>
+            <div class="gantt-bars">
+                <div class="bar bar-sub color-2" data-start="2025-09-17" data-end="2026-01-28" data-tooltip="Task: Team Presentation&#10;Draft Due: 05/11/2025&#10;Final Due: 28/01/2026&#10;Marker: Chris Butler&#10;Moderator: S Rayner">28/01/2026</div>
+            </div>
+        </div>
+        
+        <!-- MODULE 15 -->
+        <div class="gantt-row">
+            <div class="gantt-label">Mod 15: Prototype Design</div>
+            <div class="gantt-bars">
+                <div class="bar bar-main color-3" data-start="2025-12-17" data-end="2026-05-15" data-tooltip="Module 15: GD6PD Prototype Design&#10;Total Credits: 30&#10;Overall Deadline: 15/05/2026">15/05/2026</div>
+            </div>
+        </div>
+        <div class="gantt-row">
+            <div class="gantt-label sub-task">Written Proposal</div>
+            <div class="gantt-bars">
+                <div class="bar bar-sub color-3" data-start="2025-12-17" data-end="2026-02-04" data-tooltip="Task: Written Proposal/Rationale&#10;Draft Due: 17/12/2025&#10;Final Due: 04/02/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">04/02/2026</div>
+            </div>
+        </div>
+        <div class="gantt-row">
+            <div class="gantt-label sub-task">Practical Prototype</div>
+            <div class="gantt-bars">
+                <div class="bar bar-sub color-3" data-start="2026-01-07" data-end="2026-05-08" data-tooltip="Task: Practical Prototype Design&#10;Draft Due: 20/03/2026&#10;Final Due: 08/05/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">08/05/2026</div>
+            </div>
+        </div>
+        <div class="gantt-row">
+            <div class="gantt-label sub-task">Prototype Presentation</div>
+            <div class="gantt-bars">
+                <div class="bar bar-sub color-3" data-start="2026-01-07" data-end="2026-05-15" data-tooltip="Task: 20 minute Prototype Presentation&#10;Draft Due: 01/05/2026&#10;Final Due: 15/05/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">15/05/2026</div>
+            </div>
+        </div>
+
+        <!-- MODULE 16 -->
+        <div class="gantt-row">
+            <div class="gantt-label">Mod 16: Adv. 3D Modelling</div>
+            <div class="gantt-bars">
+                <div class="bar bar-main color-4" data-start="2025-09-17" data-end="2026-05-15" data-tooltip="Module 16: GD6A3D Game Art & Design - Advanced 3D Modelling&#10;Total Credits: 20&#10;Overall Deadline: 15/05/2026">15/05/2026</div>
+            </div>
+        </div>
+        <div class="gantt-row">
+            <div class="gantt-label sub-task">Blog & Practical Work</div>
+            <div class="gantt-bars">
+                <div class="bar bar-sub color-4" data-start="2025-09-17" data-end="2026-05-08" data-tooltip="Task: 2000 word Blog & Practical Work&#10;Draft Due: 05/11/2025&#10;Final Due: 08/05/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">08/05/2026</div>
+            </div>
+        </div>
+        <div class="gantt-row">
+            <div class="gantt-label sub-task">15 min Presentation</div>
+            <div class="gantt-bars">
+                <div class="bar bar-sub color-4" data-start="2025-09-17" data-end="2026-05-13" data-tooltip="Task: 15 minute Presentation&#10;Draft Due: 04/03/2026&#10;Final Due: 13/05/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">13/05/2026</div>
+            </div>
+        </div>
+         <div class="gantt-row">
+            <div class="gantt-label sub-task">800 word Evaluation</div>
+            <div class="gantt-bars">
+                <div class="bar bar-sub color-4" data-start="2025-09-17" data-end="2026-05-15" data-tooltip="Task: 800 word Evaluation&#10;Draft Due: 04/03/2026&#10;Final Due: 15/05/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">15/05/2026</div>
+            </div>
+        </div>
+
+        <!-- MODULE 17 -->
+        <div class="gantt-row">
+            <div class="gantt-label">Mod 17: Game & Char. Anim.</div>
+            <div class="gantt-bars">
+                <div class="bar bar-main color-5" data-start="2025-09-17" data-end="2026-05-15" data-tooltip="Module 17: GD6GCA Game & Character Animation Interactive Gameplay&#10;Total Credits: 20&#10;Overall Deadline: 15/05/2026">15/05/2026</div>
+            </div>
+        </div>
+         <div class="gantt-row">
+            <div class="gantt-label sub-task">Adv. Interaction R&D</div>
+            <div class="gantt-bars">
+                <div class="bar bar-sub color-5" data-start="2025-09-17" data-end="2026-05-08" data-tooltip="Task: Advanced Interaction Research & Development&#10;Draft Due: 10/10/2025&#10;Final Due: 08/05/2026&#10;Marker: Chris Butler&#10;Moderator: S Rayner">08/05/2026</div>
+            </div>
+        </div>
+         <div class="gantt-row">
+            <div class="gantt-label sub-task">Final Game Design</div>
+            <div class="gantt-bars">
+                <div class="bar bar-sub color-5" data-start="2025-09-17" data-end="2026-05-15" data-tooltip="Task: Final Interactive Game Design&#10;Draft Due: 12/12/2025&#10;Final Due: 15/05/2026&#10;Marker: Chris Butler&#10;Moderator: S Rayner">15/05/2026</div>
+            </div>
+        </div>
+         <div class="gantt-row">
+            <div class="gantt-label sub-task">Team Presentations</div>
+            <div class="gantt-bars">
+                <div class="bar bar-sub color-5" data-start="2025-09-17" data-end="2026-05-15" data-tooltip="Task: Team Presentations&#10;Draft Due: 22/05/2026&#10;Final Due: 15/05/2026&#10;Marker: Chris Butler&#10;Moderator: S Rayner">15/05/2026</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- ELEMENTS ---
+    const todayMarker = document.getElementById('today-marker');
+    const dateSetter = document.getElementById('date-setter');
+    const setTodayBtn = document.getElementById('set-today-btn');
+    const tooltip = document.getElementById('tooltip');
+    const bars = document.querySelectorAll('.bar');
+
+    // --- TIMELINE CONSTANTS (ALL IN UTC) ---
+    // Updated timeline start date to Sep 8, 2025
+    const timelineStart = new Date(Date.UTC(2025, 8, 8)); // Month is 0-indexed (8 = September)
+    const timelineEnd = new Date(Date.UTC(2026, 4, 25));   // (4 = May)
+    const totalTimelineDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
+
+    // --- UTILITY FUNCTION ---
+    const parseDate = (dateString) => {
+        const [year, month, day] = dateString.split('-').map(Number);
+        return new Date(Date.UTC(year, month - 1, day));
+    };
+
+    // --- CORE LOGIC ---
+
+    function updateMarkerPosition(dateToShow) {
+        const daysFromStart = (dateToShow - timelineStart) / (1000 * 60 * 60 * 24);
+
+        if (daysFromStart >= 0 && daysFromStart <= totalTimelineDays) {
+            const percentage = (daysFromStart / totalTimelineDays) * 100;
+            todayMarker.style.left = percentage + '%';
+            todayMarker.style.display = 'block';
+        } else {
+            todayMarker.style.display = 'none';
+        }
+    }
+
+    function positionBars() {
+        bars.forEach(bar => {
+            const barStart = parseDate(bar.dataset.start);
+            const barEnd = parseDate(bar.dataset.end);
+
+            const daysFromStart = (barStart - timelineStart) / (1000 * 60 * 60 * 24);
+            const durationDays = (barEnd - barStart) / (1000 * 60 * 60 * 24);
+
+            const leftPercentage = (daysFromStart / totalTimelineDays) * 100;
+            const widthPercentage = (durationDays / totalTimelineDays) * 100;
+
+            bar.style.left = `${leftPercentage}%`;
+            bar.style.width = `${widthPercentage}%`;
+        });
+    }
+
+    // --- EVENT LISTENERS ---
+    
+    dateSetter.addEventListener('change', function() {
+        if (this.value) {
+            updateMarkerPosition(parseDate(this.value));
+        }
+    });
+
+    setTodayBtn.addEventListener('click', function() {
+        dateSetter.value = '';
+        const today = new Date();
+        const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+        updateMarkerPosition(todayUTC);
+    });
+
+    bars.forEach(bar => {
+        bar.addEventListener('mousemove', function(e) {
+            tooltip.style.display = 'block';
+            tooltip.style.left = (e.pageX + 15) + 'px';
+            tooltip.style.top = (e.pageY + 15) + 'px';
+            tooltip.textContent = bar.getAttribute('data-tooltip');
+        });
+
+        bar.addEventListener('mouseleave', function() {
+            tooltip.style.display = 'none';
+        });
+    });
+
+    // --- INITIALIZATION ---
+    positionBars();
+    setTodayBtn.click();
+});
+</script>
+
+</body>
+</html>
