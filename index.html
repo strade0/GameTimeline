@@ -43,7 +43,7 @@
         .container {
             width: 95%;
             margin: 20px auto;
-            overflow-x: auto;
+            overflow-x: auto; /* This enables horizontal scrolling on mobile */
         }
         h1 {
             text-align: center;
@@ -81,7 +81,7 @@
         }
         .gantt-bars {
             position: relative;
-            background-size: calc(100% / 37) 100%; /* Updated for 37 weeks */
+            background-size: calc(100% / 37) 100%;
             background-image: linear-gradient(to right, #dfe6e9 1px, transparent 1px);
         }
         .gantt-header .gantt-bars {
@@ -89,7 +89,7 @@
         }
         .gantt-header-timeline {
              display: grid;
-             grid-template-columns: repeat(37, 1fr); /* Updated for 37 weeks */
+             grid-template-columns: repeat(37, 1fr);
              background-color: #ecf0f1;
              height: 50px;
              align-items: center;
@@ -147,21 +147,42 @@
         #tooltip {
             position: fixed;
             display: none;
-            padding: 10px;
-            background-color: #2c3e50;
+            padding: 10px 12px;
+            background-color: rgba(44, 62, 80, 0.95);
             color: white;
             border-radius: 6px;
             font-size: 12px;
             z-index: 20;
             pointer-events: none;
             white-space: pre;
-            line-height: 1.6;
+            line-height: 1.7;
+        }
+        #tooltip .countdown {
+            font-weight: bold;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #7f8c8d;
         }
         .color-1 { background-color: #3498db; }
         .color-2 { background-color: #2ecc71; }
         .color-3 { background-color: #e74c3c; }
         .color-4 { background-color: #9b59b6; }
         .color-5 { background-color: #f39c12; }
+
+        /* --- MOBILE OPTIMISATIONS --- */
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column; /* Stack controls vertically */
+                align-items: stretch;
+                padding: 15px;
+            }
+            .controls input[type="date"] {
+                text-align: center;
+            }
+            h1 {
+                font-size: 24px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -183,12 +204,12 @@
             <div class="gantt-bars">
                 <div id="today-marker"></div>
                 <div class="gantt-header-timeline">
-                    <!-- Added Sep 8 -->
                     <span>Sep 8</span><span>Sep 15</span><span>Sep 22</span><span>Sep 29</span><span>Oct 6</span><span>Oct 13</span><span>Oct 20</span><span>Oct 27</span><span>Nov 3</span><span>Nov 10</span><span>Nov 17</span><span>Nov 24</span><span>Dec 1</span><span>Dec 8</span><span>Dec 15</span><span>Dec 22</span><span>Dec 29</span><span>Jan 5</span><span>Jan 12</span><span>Jan 19</span><span>Jan 26</span><span>Feb 2</span><span>Feb 9</span><span>Feb 16</span><span>Feb 23</span><span>Mar 2</span><span>Mar 9</span><span>Mar 16</span><span>Mar 23</span><span>Mar 30</span><span>Apr 6</span><span>Apr 13</span><span>Apr 20</span><span>Apr 27</span><span>May 4</span><span>May 11</span><span>May 18</span>
                 </div>
             </div>
         </div>
 
+        <!-- MODULE HTML (omitted for brevity, it's identical to the previous version) -->
         <!-- MODULE 13 -->
         <div class="gantt-row">
             <div class="gantt-label">Mod 13: Dissertation</div>
@@ -208,7 +229,6 @@
                  <div class="bar bar-sub color-1" data-start="2025-09-17" data-end="2026-04-13" data-tooltip="Task: Dissertation&#10;Draft Due: 23/03/2026&#10;Final Due: 13/04/2026&#10;Marker: G Clarke&#10;Moderator: S Rayner">13/04/2026</div>
             </div>
         </div>
-
         <!-- MODULE 14 -->
         <div class="gantt-row">
             <div class="gantt-label">Mod 14: Adv. HCI</div>
@@ -228,7 +248,6 @@
                 <div class="bar bar-sub color-2" data-start="2025-09-17" data-end="2026-01-28" data-tooltip="Task: Team Presentation&#10;Draft Due: 05/11/2025&#10;Final Due: 28/01/2026&#10;Marker: Chris Butler&#10;Moderator: S Rayner">28/01/2026</div>
             </div>
         </div>
-        
         <!-- MODULE 15 -->
         <div class="gantt-row">
             <div class="gantt-label">Mod 15: Prototype Design</div>
@@ -254,7 +273,6 @@
                 <div class="bar bar-sub color-3" data-start="2026-01-07" data-end="2026-05-15" data-tooltip="Task: 20 minute Prototype Presentation&#10;Draft Due: 01/05/2026&#10;Final Due: 15/05/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">15/05/2026</div>
             </div>
         </div>
-
         <!-- MODULE 16 -->
         <div class="gantt-row">
             <div class="gantt-label">Mod 16: Adv. 3D Modelling</div>
@@ -280,7 +298,6 @@
                 <div class="bar bar-sub color-4" data-start="2025-09-17" data-end="2026-05-15" data-tooltip="Task: 800 word Evaluation&#10;Draft Due: 04/03/2026&#10;Final Due: 15/05/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">15/05/2026</div>
             </div>
         </div>
-
         <!-- MODULE 17 -->
         <div class="gantt-row">
             <div class="gantt-label">Mod 17: Game & Char. Anim.</div>
@@ -306,6 +323,7 @@
                 <div class="bar bar-sub color-5" data-start="2025-09-17" data-end="2026-05-15" data-tooltip="Task: Team Presentations&#10;Draft Due: 22/05/2026&#10;Final Due: 15/05/2026&#10;Marker: Chris Butler&#10;Moderator: S Rayner">15/05/2026</div>
             </div>
         </div>
+
     </div>
 </div>
 
@@ -319,15 +337,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const bars = document.querySelectorAll('.bar');
 
     // --- TIMELINE CONSTANTS (ALL IN UTC) ---
-    // Updated timeline start date to Sep 8, 2025
-    const timelineStart = new Date(Date.UTC(2025, 8, 8)); // Month is 0-indexed (8 = September)
-    const timelineEnd = new Date(Date.UTC(2026, 4, 25));   // (4 = May)
+    const timelineStart = new Date(Date.UTC(2025, 8, 8)); // Month 8 = September
+    const timelineEnd = new Date(Date.UTC(2026, 4, 25));   // Month 4 = May
     const totalTimelineDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
 
     // --- UTILITY FUNCTION ---
     const parseDate = (dateString) => {
         const [year, month, day] = dateString.split('-').map(Number);
         return new Date(Date.UTC(year, month - 1, day));
+    };
+    
+    // --- Get today's date in UTC at midnight ---
+    const getTodayUTC = () => {
+        const today = new Date();
+        return new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
     };
 
     // --- CORE LOGIC ---
@@ -370,17 +393,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
     setTodayBtn.addEventListener('click', function() {
         dateSetter.value = '';
-        const today = new Date();
-        const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-        updateMarkerPosition(todayUTC);
+        updateMarkerPosition(getTodayUTC());
     });
 
     bars.forEach(bar => {
         bar.addEventListener('mousemove', function(e) {
+            const deadline = parseDate(bar.dataset.end);
+            const today = getTodayUTC();
+            const diffTime = deadline - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            let countdownText = '';
+            if (diffDays < 0) {
+                countdownText = `Deadline passed ${Math.abs(diffDays)} days ago`;
+            } else if (diffDays === 0) {
+                countdownText = 'Due today!';
+            } else {
+                countdownText = `${diffDays} days remaining`;
+            }
+            
+            const originalTooltip = bar.getAttribute('data-tooltip');
+            // Use innerHTML to allow for a styled div
+            tooltip.innerHTML = `${originalTooltip}<div class="countdown">${countdownText}</div>`;
+
             tooltip.style.display = 'block';
             tooltip.style.left = (e.pageX + 15) + 'px';
             tooltip.style.top = (e.pageY + 15) + 'px';
-            tooltip.textContent = bar.getAttribute('data-tooltip');
         });
 
         bar.addEventListener('mouseleave', function() {
