@@ -183,6 +183,70 @@
                 font-size: 24px;
             }
         }
+
+        /* --- Visitor Board Styles --- */
+        #visitor-board {
+            background-color: #fff;
+            border-top: 1px solid #dfe6e9;
+            padding: 20px;
+            margin: 20px auto;
+            width: 95%;
+            max-width: 600px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #visitor-board h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        #rename-form {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        #nameInput {
+            width: 70%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #rename-btn {
+            padding: 8px 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #rename-btn:hover {
+            background: #2980b9;
+        }
+        #rename-status {
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        #visitorList {
+            list-style: none;
+            padding: 0;
+            margin-top: 10px;
+        }
+        #visitorList li {
+            background: #f8f9fa;
+            margin: 5px 0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+        #visitorList .name {
+            font-weight: bold;
+        }
+        #visitorList .time {
+            color: #6c757d;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -209,7 +273,6 @@
             </div>
         </div>
 
-        <!-- MODULE HTML (omitted for brevity, it's identical to the previous version) -->
         <!-- MODULE 13 -->
         <div class="gantt-row">
             <div class="gantt-label">Mod 13: Dissertation</div>
@@ -327,6 +390,19 @@
     </div>
 </div>
 
+<!-- Visitor Board -->
+<div id="visitor-board">
+    <h3>Recent Visitors</h3>
+    <div id="rename-form">
+        <input type="text" id="nameInput" placeholder="Enter your name">
+        <button id="rename-btn" onclick="updateName()">Update Name</button>
+        <div id="rename-status"></div>
+    </div>
+    <ul id="visitorList">
+        <li>Loading...</li>
+    </ul>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // --- ELEMENTS ---
@@ -430,6 +506,168 @@ document.addEventListener('DOMContentLoaded', function() {
     positionBars();
     setTodayBtn.click();
 });
+</script>
+
+<!-- Firebase Script -->
+<script type="module">
+  // Import Firebase modules
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs, Timestamp, doc, updateDoc, where } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+
+  // Your Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyA4oXzllt-5dk-TLG_wAhXggJ7scY-VwtM",
+    authDomain: "gametimeline-895d9.firebaseapp.com",
+    projectId: "gametimeline-895d9",
+    storageBucket: "gametimeline-895d9.firebasestorage.app",
+    messagingSenderId: "855161361770",
+    appId: "1:855161361770:web:9b0fee2a637df3d35c0113"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+
+  let currentUserDocId = null;  // Track user's doc for updates
+
+  // Sign in anonymously on load
+  signInAnonymously(auth)
+    .then((userCredential) => {
+      console.log('Signed in anonymously:', userCredential.user.uid);
+      initVisitors();
+    })
+    .catch((error) => {
+      console.error('Auth error:', error);
+    });
+
+  // Listen for auth state
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      console.log('User is signed in');
+    } else {
+      console.log('User is signed out');
+    }
+  });
+
+  // Auto-add visitor (only once per session)
+  async function addVisitor() {
+    if (localStorage.getItem('visitedToday')) {
+      // If already visited, try to load existing name
+      await loadMyName();
+      return;
+    }
+    localStorage.setItem('visitedToday', 'true');
+
+    const name = 'Anonymous Visitor';
+    try {
+      const docRef = await addDoc(collection(db, 'visitors'), {
+        name: name,
+        timestamp: serverTimestamp(),
+        userId: auth.currentUser.uid
+      });
+      currentUserDocId = docRef.id;
+      document.getElementById('nameInput').value = name;
+      console.log('Visitor logged:', name, 'Doc ID:', currentUserDocId);
+    } catch (error) {
+      console.error('Log error:', error);
+    }
+  }
+
+  // Load user's current name (if exists)
+  async function loadMyName() {
+    try {
+      const q = query(collection(db, 'visitors'), where('userId', '==', auth.currentUser.uid));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const userDoc = snapshot.docs[0];
+        currentUserDocId = userDoc.id;
+        const data = userDoc.data();
+        document.getElementById('nameInput').value = data.name || 'Anonymous Visitor';
+      }
+    } catch (error) {
+      console.error('Load name error:', error);
+    }
+  }
+
+  // Update name function (exposed globally)
+  window.updateName = async function() {
+    const newName = document.getElementById('nameInput').value.trim();
+    const statusEl = document.getElementById('rename-status');
+    
+    if (!newName) {
+      statusEl.textContent = 'Please enter a name.';
+      statusEl.style.color = 'red';
+      return;
+    }
+    
+    if (!currentUserDocId) {
+      statusEl.textContent = 'No visitor entry found. Reload to create one.';
+      statusEl.style.color = 'red';
+      return;
+    }
+    
+    try {
+      await updateDoc(doc(db, 'visitors', currentUserDocId), {
+        name: newName
+      });
+      statusEl.textContent = 'Name updated!';
+      statusEl.style.color = 'green';
+      await loadVisitors();  // Refresh board
+      console.log('Name updated to:', newName);
+    } catch (error) {
+      statusEl.textContent = 'Error: ' + error.message;
+      statusEl.style.color = 'red';
+      console.error('Update error:', error);
+    }
+  };
+
+  // Load and display visitors
+  async function loadVisitors() {
+    const listEl = document.getElementById('visitorList');
+    listEl.innerHTML = '<li>Loading...</li>';
+    
+    try {
+      const q = query(collection(db, 'visitors'), orderBy('timestamp', 'desc'), limit(10));
+      const snapshot = await getDocs(q);
+      listEl.innerHTML = '';
+      
+      if (snapshot.empty) {
+        listEl.innerHTML = '<li>No visitors yet!</li>';
+        return;
+      }
+      
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const li = document.createElement('li');
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'name';
+        nameSpan.textContent = data.name;
+        
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'time';
+        if (data.timestamp && data.timestamp instanceof Timestamp) {
+          timeSpan.textContent = data.timestamp.toDate().toLocaleString();
+        } else {
+          timeSpan.textContent = 'Just now';
+        }
+        
+        li.appendChild(nameSpan);
+        li.appendChild(timeSpan);
+        listEl.appendChild(li);
+      });
+    } catch (error) {
+      console.error('Load error:', error);
+      listEl.innerHTML = '<li>Error loading visitors.</li>';
+    }
+  }
+
+  // Init: Add if new, load name, then load board
+  async function initVisitors() {
+    await addVisitor();
+    await loadVisitors();
+  }
 </script>
 
 </body>
