@@ -733,6 +733,7 @@
                         console.log("Firebase: Received remote snapshot.");
                         if (doc.exists()) {
                             const remoteData = doc.data();
+                            console.log("Firebase: Doc exists, pulling remote data.");
                             
                             isSyncing = true; // Set flag to prevent save loop
                             
@@ -752,7 +753,7 @@
                         } else {
                             // Document doesn't exist, so push our current state
                             console.log("Firebase: No remote doc, pushing local state.");
-                            pushFullLocalState();
+                            pushFullLocalState(); // <-- MOVED to here
                         }
                         syncStatus.textContent = `Connected`;
                     }, (error) => {
@@ -761,8 +762,7 @@
                     });
 
                     // --- 2. Push all current local states to Firebase ---
-                    // This merges our current state with whatever is on Firebase
-                    pushFullLocalState();
+                    // REMOVED from here to fix the bug
                 }
 
                 // Pushes the state of *all* checkboxes to Firebase
