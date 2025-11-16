@@ -288,6 +288,8 @@
     </div>
 
     <div class="container">
+        <!-- All your module-card divs go here -->
+        <!-- ... (Module 14) ... -->
         <div class="module-card">
             <h2>Module 14 - HCI</h2>
             <div class="week-list" data-module="HCI">
@@ -374,6 +376,7 @@
             </div>
         </div>
 
+        <!-- ... (Module 16) ... -->
         <div class="module-card">
             <h2>Module 16 - Advanced 3D</h2>
             <div class="week-list" data-module="Module16">
@@ -508,6 +511,7 @@
             </div>
         </div>
 
+        <!-- ... (Module 17) ... -->
         <div class="module-card">
             <h2>Module 17 - Game Mechanics</h2>
             <div class="week-list" data-module="Module17">
@@ -709,7 +713,18 @@
                     }
                 }
                 
-                // --- NEW: Sync Functions ---
+                // --- **** NEW HELPER FUNCTION **** ---
+                // This visually resets all checkboxes to 'false'
+                function resetCheckboxesUI() {
+                    console.log("Resetting all checkboxes UI to false.");
+                    checkboxes.forEach(checkbox => {
+                        if (checkbox.id !== 'theme-toggle') {
+                            checkbox.checked = false;
+                        }
+                    });
+                }
+                
+                // --- MODIFIED: Sync Functions ---
                 
                 function connectToSync() {
                     const newSyncId = syncIdInput.value.trim();
@@ -718,10 +733,20 @@
                         return;
                     }
 
+                    // --- NEW: Check if we are actually changing rooms ---
+                    if (newSyncId === currentSyncId) {
+                        console.log("Already connected to this ID.");
+                        return; // Do nothing if it's the same ID
+                    }
+
                     // Disconnect from old room if one exists
                     if (unsubscribeSync) {
                         unsubscribeSync();
+                        console.log("Disconnected from old sync room.");
                     }
+
+                    // --- NEW: Reset the UI before connecting to the new room ---
+                    resetCheckboxesUI(); 
 
                     currentSyncId = newSyncId;
                     localStorage.setItem('savedSyncId', currentSyncId); // Remember this ID
@@ -751,9 +776,9 @@
                             
                             isSyncing = false; // Release flag
                         } else {
-                            // Document doesn't exist, so push our current state
+                            // Document doesn't exist, so push our current (now blank) state
                             console.log("Firebase: No remote doc, pushing local state.");
-                            pushFullLocalState(); // <-- MOVED to here
+                            pushFullLocalState();
                         }
                         syncStatus.textContent = `Connected`;
                     }, (error) => {
@@ -761,8 +786,7 @@
                         syncStatus.textContent = "Error connecting.";
                     });
 
-                    // --- 2. Push all current local states to Firebase ---
-                    // REMOVED from here to fix the bug
+                    // (We no longer push state here, we wait for the listener)
                 }
 
                 // Pushes the state of *all* checkboxes to Firebase
@@ -778,6 +802,7 @@
                     });
 
                     // Use setDoc with merge:true to non-destructively update
+                    // This will create the doc if it doesn't exist
                     setDoc(doc(db, "checkboxSync", currentSyncId), localState, { merge: true });
                 }
 
@@ -814,7 +839,9 @@
             
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
-                syncStatus.textContent = "Firebase failed to load.";
+                if (syncStatus) {
+                    syncStatus.textContent = "Firebase failed to load.";
+                }
             }
 
         });
