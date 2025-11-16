@@ -3,672 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Module Gantt Chart</title>
+    <title>Project Selector</title>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load Inter font (Apple-style) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
+        /* Set the Inter font as the default */
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: #f4f7fa;
-            color: #333;
-            margin: 0;
-        }
-        .controls {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 15px;
-            padding: 20px;
-            background-color: #fff;
-            border-bottom: 1px solid #dfe6e9;
-        }
-        .controls label {
-            font-weight: bold;
-            font-size: 14px;
-        }
-        .controls input[type="date"], .controls button {
-            padding: 8px 12px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            font-size: 14px;
-        }
-        .controls button {
-            cursor: pointer;
-            background-color: #3498db;
-            color: white;
-            border-color: #3498db;
-            transition: background-color 0.2s;
-        }
-        .controls button:hover {
-            background-color: #2980b9;
-        }
-        .container {
-            width: 95%;
-            margin: 20px auto;
-            overflow-x: auto; /* This enables horizontal scrolling on mobile */
-        }
-        h1 {
-            text-align: center;
-            color: #2c3e50;
-        }
-        .gantt-chart {
-            display: grid;
-            border: 1px solid #dfe6e9;
-            border-radius: 8px;
-            overflow: hidden;
-            background-color: #fff;
-            min-width: 1800px;
-        }
-        .gantt-row {
-            display: grid;
-            grid-template-columns: 250px 1fr;
-            border-bottom: 1px solid #dfe6e9;
-        }
-        .gantt-row:last-child {
-            border-bottom: none;
-        }
-        .gantt-label, .gantt-header-label {
-            padding: 15px;
-            font-weight: bold;
-            background-color: #ecf0f1;
-            border-right: 1px solid #dfe6e9;
-            text-align: right;
-            white-space: nowrap;
-            font-size: 14px;
-        }
-        .gantt-label.sub-task {
-            padding-right: 30px;
-            font-weight: normal;
-            background-color: #f8f9fa;
-        }
-        .gantt-bars {
-            position: relative;
-            background-size: calc(100% / 37) 100%;
-            background-image: linear-gradient(to right, #dfe6e9 1px, transparent 1px);
-        }
-        .gantt-header .gantt-bars {
-            position: relative;
-        }
-        .gantt-header-timeline {
-             display: grid;
-             grid-template-columns: repeat(37, 1fr);
-             background-color: #ecf0f1;
-             height: 50px;
-             align-items: center;
-        }
-        .gantt-header-timeline span {
-            font-size: 11px;
-            font-weight: bold;
-            color: #6c757d;
-            text-align: center;
-            border-left: 1px solid #dfe6e9;
-            white-space: nowrap;
-        }
-        .bar {
-            position: absolute;
-            height: 60%;
-            top: 20%;
-            border-radius: 5px;
-            transition: opacity 0.2s, transform 0.2s;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            padding-right: 10px;
-            box-sizing: border-box;
-            color: white;
-            font-size: 11px;
-            font-weight: 600;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
-        }
-        .bar:hover {
-            opacity: 1 !important;
-            transform: scaleY(1.1);
-        }
-        .bar-main {
-             height: 100%;
-             top: 0;
-             opacity: 0.85;
-        }
-         .bar-sub {
-             height: 50%;
-             top: 25%;
-             opacity: 0.6;
-        }
-        #today-marker {
-            position: absolute;
-            top: 0;
-            height: 2000px;
-            width: 3px;
-            background-color: rgba(231, 76, 60, 0.8);
-            z-index: 10;
-            border-radius: 2px;
-            display: none;
-            pointer-events: none;
-        }
-        #tooltip {
-            position: fixed;
-            display: none;
-            padding: 10px 12px;
-            background-color: rgba(44, 62, 80, 0.95);
-            color: white;
-            border-radius: 6px;
-            font-size: 12px;
-            z-index: 20;
-            pointer-events: none;
-            white-space: pre;
-            line-height: 1.7;
-        }
-        #tooltip .countdown {
-            font-weight: bold;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid #7f8c8d;
-        }
-        .color-1 { background-color: #3498db; }
-        .color-2 { background-color: #2ecc71; }
-        .color-3 { background-color: #e74c3c; }
-        .color-4 { background-color: #9b59b6; }
-        .color-5 { background-color: #f39c12; }
-
-        /* --- MOBILE OPTIMISATIONS --- */
-        @media (max-width: 768px) {
-            .controls {
-                flex-direction: column; /* Stack controls vertically */
-                align-items: stretch;
-                padding: 15px;
-            }
-            .controls input[type="date"] {
-                text-align: center;
-            }
-            h1 {
-                font-size: 24px;
-            }
+            font-family: 'Inter', sans-serif;
+            /* Fallback for the gradient background */
+            background-color: #111827; 
         }
 
-        /* --- Visitor Board Styles --- */
-        #visitor-board {
-            background-color: #fff;
-            border-top: 1px solid #dfe6e9;
-            padding: 20px;
-            margin: 20px auto;
-            width: 95%;
-            max-width: 600px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        #visitor-board h3 {
-            margin-top: 0;
-            color: #2c3e50;
-        }
-        #rename-form {
-            margin-bottom: 15px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 4px;
-        }
-        #nameInput {
-            width: 70%;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        #rename-btn {
-            padding: 8px 12px;
-            background: #3498db;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        #rename-btn:hover {
-            background: #2980b9;
-        }
-        #rename-status {
-            font-size: 12px;
-            margin-top: 5px;
-        }
-        #visitorList {
-            list-style: none;
-            padding: 0;
-            margin-top: 10px;
-        }
-        #visitorList li {
-            background: #f8f9fa;
-            margin: 5px 0;
-            padding: 8px 12px;
-            border-radius: 4px;
-            display: flex;
-            justify-content: space-between;
-            font-size: 14px;
-        }
-        #visitorList .name {
-            font-weight: bold;
-        }
-        #visitorList .time {
-            color: #6c757d;
-            font-size: 12px;
+        /* This custom class creates the "liquid glass" effect.
+          - background: A semi-transparent white for the "glass" color.
+          - backdrop-filter: Blurs whatever is behind the element.
+          - border: A very faint white border to catch the light.
+          - box-shadow: A soft, diffused shadow to create depth.
+        */
+        .glass-button {
+            /* Glass background color */
+            background: rgba(255, 255, 255, 0.05);
+            
+            /* The blur effect */
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px); /* For Safari */
+            
+            /* Subtle "glowing" border */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            
+            /* The "nice shadow" for depth, Apple-style */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), 0 6px 6px rgba(0, 0, 0, 0.23);
+            
+            /* Smooth transition for hover effects */
+            transition: all 0.3s ease;
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display-swap" rel="stylesheet">
+    
+    <style>
+        /* Set the Inter font as the default */
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Fallback for the background */
+            background-color: #f3f4f6; /* light gray, similar to timeline.html */
         }
     </style>
 </head>
-<body>
+<body class="bg-gray-100 text-gray-900">
 
-<div id="tooltip"></div>
-
-<div class="controls">
-    <label for="date-setter">Set Custom Date:</label>
-    <input type="date" id="date-setter">
-    <button id="set-today-btn">Set to Today</button>
-</div>
-
-<div class="container">
-    <h1>Interactive Module Timeline</h1>
-    <div class="gantt-chart">
-
-        <div class="gantt-row gantt-header">
-            <div class="gantt-header-label">Module / Task</div>
-            <div class="gantt-bars">
-                <div id="today-marker"></div>
-                <div class="gantt-header-timeline">
-                    <span>Sep 8</span><span>Sep 15</span><span>Sep 22</span><span>Sep 29</span><span>Oct 6</span><span>Oct 13</span><span>Oct 20</span><span>Oct 27</span><span>Nov 3</span><span>Nov 10</span><span>Nov 17</span><span>Nov 24</span><span>Dec 1</span><span>Dec 8</span><span>Dec 15</span><span>Dec 22</span><span>Dec 29</span><span>Jan 5</span><span>Jan 12</span><span>Jan 19</span><span>Jan 26</span><span>Feb 2</span><span>Feb 9</span><span>Feb 16</span><span>Feb 23</span><span>Mar 2</span><span>Mar 9</span><span>Mar 16</span><span>Mar 23</span><span>Mar 30</span><span>Apr 6</span><span>Apr 13</span><span>Apr 20</span><span>Apr 27</span><span>May 4</span><span>May 11</span><span>May 18</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- MODULE 13 -->
-        <div class="gantt-row">
-            <div class="gantt-label">Mod 13: Dissertation</div>
-            <div class="gantt-bars">
-                <div class="bar bar-main color-1" data-start="2025-09-17" data-end="2026-04-13" data-tooltip="Module 13: GD6D-Dissertation&#10;Total Credits: 30&#10;Overall Deadline: 13/04/2026">13/04/2026</div>
-            </div>
-        </div>
-        <div class="gantt-row">
-            <div class="gantt-label sub-task">Proposal</div>
-            <div class="gantt-bars">
-                 <div class="bar bar-sub color-1" data-start="2025-09-17" data-end="2025-11-14" data-tooltip="Task: Proposal&#10;Draft Due: 12/11/2025&#10;Final Due: 14/11/2025&#10;Marker: G Clarke&#10;Moderator: S Rayner">14/11/2025</div>
-            </div>
-        </div>
-        <div class="gantt-row">
-            <div class="gantt-label sub-task">Dissertation</div>
-            <div class="gantt-bars">
-                 <div class="bar bar-sub color-1" data-start="2025-09-17" data-end="2026-04-13" data-tooltip="Task: Dissertation&#10;Draft Due: 23/03/2026&#10;Final Due: 13/04/2026&#10;Marker: G Clarke&#10;Moderator: S Rayner">13/04/2026</div>
-            </div>
-        </div>
-        <!-- MODULE 14 -->
-        <div class="gantt-row">
-            <div class="gantt-label">Mod 14: Adv. HCI</div>
-            <div class="gantt-bars">
-                <div class="bar bar-main color-2" data-start="2025-09-17" data-end="2026-01-28" data-tooltip="Module 14: GD6AHCI Advanced Human Computer Interface&#10;Total Credits: 20&#10;Overall Deadline: 28/01/2026">28/01/2026</div>
-            </div>
-        </div>
-        <div class="gantt-row">
-            <div class="gantt-label sub-task">HCI Team Work</div>
-            <div class="gantt-bars">
-                <div class="bar bar-sub color-2" data-start="2025-09-17" data-end="2026-01-28" data-tooltip="Task: HCI Team Design and Development&#10;Draft Due: 05/11/2025&#10;Final Due: 28/01/2026&#10;Marker: Chris Butler&#10;Moderator: S Rayner">28/01/2026</div>
-            </div>
-        </div>
-        <div class="gantt-row">
-            <div class="gantt-label sub-task">Team Presentation</div>
-            <div class="gantt-bars">
-                <div class="bar bar-sub color-2" data-start="2025-09-17" data-end="2026-01-28" data-tooltip="Task: Team Presentation&#10;Draft Due: 05/11/2025&#10;Final Due: 28/01/2026&#10;Marker: Chris Butler&#10;Moderator: S Rayner">28/01/2026</div>
-            </div>
-        </div>
-        <!-- MODULE 15 -->
-        <div class="gantt-row">
-            <div class="gantt-label">Mod 15: Prototype Design</div>
-            <div class="gantt-bars">
-                <div class="bar bar-main color-3" data-start="2025-12-17" data-end="2026-05-15" data-tooltip="Module 15: GD6PD Prototype Design&#10;Total Credits: 30&#10;Overall Deadline: 15/05/2026">15/05/2026</div>
-            </div>
-        </div>
-        <div class="gantt-row">
-            <div class="gantt-label sub-task">Written Proposal</div>
-            <div class="gantt-bars">
-                <div class="bar bar-sub color-3" data-start="2025-12-17" data-end="2026-02-04" data-tooltip="Task: Written Proposal/Rationale&#10;Draft Due: 17/12/2025&#10;Final Due: 04/02/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">04/02/2026</div>
-            </div>
-        </div>
-        <div class="gantt-row">
-            <div class="gantt-label sub-task">Practical Prototype</div>
-            <div class="gantt-bars">
-                <div class="bar bar-sub color-3" data-start="2026-01-07" data-end="2026-05-08" data-tooltip="Task: Practical Prototype Design&#10;Draft Due: 20/03/2026&#10;Final Due: 08/05/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">08/05/2026</div>
-            </div>
-        </div>
-        <div class="gantt-row">
-            <div class="gantt-label sub-task">Prototype Presentation</div>
-            <div class="gantt-bars">
-                <div class="bar bar-sub color-3" data-start="2026-01-07" data-end="2026-05-15" data-tooltip="Task: 20 minute Prototype Presentation&#10;Draft Due: 01/05/2026&#10;Final Due: 15/05/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">15/05/2026</div>
-            </div>
-        </div>
-        <!-- MODULE 16 -->
-        <div class="gantt-row">
-            <div class="gantt-label">Mod 16: Adv. 3D Modelling</div>
-            <div class="gantt-bars">
-                <div class="bar bar-main color-4" data-start="2025-09-17" data-end="2026-05-15" data-tooltip="Module 16: GD6A3D Game Art & Design - Advanced 3D Modelling&#10;Total Credits: 20&#10;Overall Deadline: 15/05/2026">15/05/2026</div>
-            </div>
-        </div>
-        <div class="gantt-row">
-            <div class="gantt-label sub-task">Blog & Practical Work</div>
-            <div class="gantt-bars">
-                <div class="bar bar-sub color-4" data-start="2025-09-17" data-end="2026-05-08" data-tooltip="Task: 2000 word Blog & Practical Work&#10;Draft Due: 05/11/2025&#10;Final Due: 08/05/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">08/05/2026</div>
-            </div>
-        </div>
-        <div class="gantt-row">
-            <div class="gantt-label sub-task">15 min Presentation</div>
-            <div class="gantt-bars">
-                <div class="bar bar-sub color-4" data-start="2025-09-17" data-end="2026-05-13" data-tooltip="Task: 15 minute Presentation&#10;Draft Due: 04/03/2026&#10;Final Due: 13/05/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">13/05/2026</div>
-            </div>
-        </div>
-         <div class="gantt-row">
-            <div class="gantt-label sub-task">800 word Evaluation</div>
-            <div class="gantt-bars">
-                <div class="bar bar-sub color-4" data-start="2025-09-17" data-end="2026-05-15" data-tooltip="Task: 800 word Evaluation&#10;Draft Due: 04/03/2026&#10;Final Due: 15/05/2026&#10;Marker: Sam Rayner&#10;Moderator: C Butler">15/05/2026</div>
-            </div>
-        </div>
-        <!-- MODULE 17 -->
-        <div class="gantt-row">
-            <div class="gantt-label">Mod 17: Game & Char. Anim.</div>
-            <div class="gantt-bars">
-                <div class="bar bar-main color-5" data-start="2025-09-17" data-end="2026-05-15" data-tooltip="Module 17: GD6GCA Game & Character Animation Interactive Gameplay&#10;Total Credits: 20&#10;Overall Deadline: 15/05/2026">15/05/2026</div>
-            </div>
-        </div>
-         <div class="gantt-row">
-            <div class="gantt-label sub-task">Adv. Interaction R&D</div>
-            <div class="gantt-bars">
-                <div class="bar bar-sub color-5" data-start="2025-09-17" data-end="2026-05-08" data-tooltip="Task: Advanced Interaction Research & Development&#10;Draft Due: 10/10/2025&#10;Final Due: 08/05/2026&#10;Marker: Chris Butler&#10;Moderator: S Rayner">08/05/2026</div>
-            </div>
-        </div>
-         <div class="gantt-row">
-            <div class="gantt-label sub-task">Final Game Design</div>
-            <div class="gantt-bars">
-                <div class="bar bar-sub color-5" data-start="2025-09-17" data-end="2026-05-15" data-tooltip="Task: Final Interactive Game Design&#10;Draft Due: 12/12/2025&#10;Final Due: 15/05/2026&#10;Marker: Chris Butler&#10;Moderator: S Rayner">15/05/2026</div>
-            </div>
-        </div>
-         <div class="gantt-row">
-            <div class="gantt-label sub-task">Team Presentations</div>
-            <div class="gantt-bars">
-                <div class="bar bar-sub color-5" data-start="2025-09-17" data-end="2026-05-15" data-tooltip="Task: Team Presentations&#10;Draft Due: 22/05/2026&#10;Final Due: 15/05/2026&#10;Marker: Chris Butler&#10;Moderator: S Rayner">15/05/2026</div>
-            </div>
-        </div>
-
-    </div>
-</div>
-
-<!-- Visitor Board -->
-<div id="visitor-board">
-    <h3>Recent Visitors</h3>
-    <div id="rename-form">
-        <input type="text" id="nameInput" placeholder="Enter your name">
-        <button id="rename-btn" onclick="updateName()">Update Name</button>
-        <div id="rename-status"></div>
-    </div>
-    <ul id="visitorList">
-        <li>Loading...</li>
-    </ul>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // --- ELEMENTS ---
-    const todayMarker = document.getElementById('today-marker');
-    const dateSetter = document.getElementById('date-setter');
-    const setTodayBtn = document.getElementById('set-today-btn');
-    const tooltip = document.getElementById('tooltip');
-    const bars = document.querySelectorAll('.bar');
-
-    // --- TIMELINE CONSTANTS (ALL IN UTC) ---
-    const timelineStart = new Date(Date.UTC(2025, 8, 8)); // Month 8 = September
-    const timelineEnd = new Date(Date.UTC(2026, 4, 25));   // Month 4 = May
-    const totalTimelineDays = (timelineEnd - timelineStart) / (1000 * 60 * 60 * 24);
-
-    // --- UTILITY FUNCTION ---
-    const parseDate = (dateString) => {
-        const [year, month, day] = dateString.split('-').map(Number);
-        return new Date(Date.UTC(year, month - 1, day));
-    };
-    
-    // --- Get today's date in UTC at midnight ---
-    const getTodayUTC = () => {
-        const today = new Date();
-        return new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
-    };
-
-    // --- CORE LOGIC ---
-
-    function updateMarkerPosition(dateToShow) {
-        const daysFromStart = (dateToShow - timelineStart) / (1000 * 60 * 60 * 24);
-
-        if (daysFromStart >= 0 && daysFromStart <= totalTimelineDays) {
-            const percentage = (daysFromStart / totalTimelineDays) * 100;
-            todayMarker.style.left = percentage + '%';
-            todayMarker.style.display = 'block';
-        } else {
-            todayMarker.style.display = 'none';
-        }
-    }
-
-    function positionBars() {
-        bars.forEach(bar => {
-            const barStart = parseDate(bar.dataset.start);
-            const barEnd = parseDate(bar.dataset.end);
-
-            const daysFromStart = (barStart - timelineStart) / (1000 * 60 * 60 * 24);
-            const durationDays = (barEnd - barStart) / (1000 * 60 * 60 * 24);
-
-            const leftPercentage = (daysFromStart / totalTimelineDays) * 100;
-            const widthPercentage = (durationDays / totalTimelineDays) * 100;
-
-            bar.style.left = `${leftPercentage}%`;
-            bar.style.width = `${widthPercentage}%`;
-        });
-    }
-
-    // --- EVENT LISTENERS ---
-    
-    dateSetter.addEventListener('change', function() {
-        if (this.value) {
-            updateMarkerPosition(parseDate(this.value));
-        }
-    });
-
-    setTodayBtn.addEventListener('click', function() {
-        dateSetter.value = '';
-        updateMarkerPosition(getTodayUTC());
-    });
-
-    bars.forEach(bar => {
-        bar.addEventListener('mousemove', function(e) {
-            const deadline = parseDate(bar.dataset.end);
-            const today = getTodayUTC();
-            const diffTime = deadline - today;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            let countdownText = '';
-            if (diffDays < 0) {
-                countdownText = `Deadline passed ${Math.abs(diffDays)} days ago`;
-            } else if (diffDays === 0) {
-                countdownText = 'Due today!';
-            } else {
-                countdownText = `${diffDays} days remaining`;
-            }
+    <!-- 
+      Main container
+      - h-screen: Sets height to 100% of the viewport.
+      - flex, items-center, justify-center: The trifecta for perfect centering.
+    -->
+    <div class="h-screen w-full flex items-center justify-center p-4">
+        
+        <!-- 
+          Button wrapper
+          - Stacks buttons vertically on small screens (flex-col)
+          - Places them side-by-side on larger screens (sm:flex-row)
+          - gap-8: Adds space between the buttons
+        -->
+        <div class="flex flex-col sm:flex-row gap-8">
             
-            const originalTooltip = bar.getAttribute('data-tooltip');
-            // Use innerHTML to allow for a styled div
-            tooltip.innerHTML = `${originalTooltip}<div class="countdown">${countdownText}</div>`;
+            <!-- Timeline Button -->
+            <a href="timeline.html" 
+               class="block w-64 text-center py-8 rounded-xl text-2xl font-semibold bg-white text-gray-800 border border-gray-200 shadow-lg hover:shadow-xl hover:-translate-y-1 transform transition-all duration-300 ease-in-out">
+                Timeline
+            </a>
+            
+            <!-- Progress Button -->
+            <a href="checkbox.html" 
+               class="block w-64 text-center py-8 rounded-xl text-2xl font-semibold bg-white text-gray-800 border border-gray-200 shadow-lg hover:shadow-xl hover:-translate-y-1 transform transition-all duration-300 ease-in-out">
+                Progress
+            </a>
 
-            tooltip.style.display = 'block';
-            tooltip.style.left = (e.pageX + 15) + 'px';
-            tooltip.style.top = (e.pageY + 15) + 'px';
-        });
-
-        bar.addEventListener('mouseleave', function() {
-            tooltip.style.display = 'none';
-        });
-    });
-
-    // --- INITIALIZATION ---
-    positionBars();
-    setTodayBtn.click();
-});
-</script>
-
-<!-- Firebase Script -->
-<script type="module">
-  // Import Firebase modules
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-  import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs, Timestamp, doc, updateDoc, where } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
-  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
-
-  // Your Firebase config
-  const firebaseConfig = {
-    apiKey: "AIzaSyA4oXzllt-5dk-TLG_wAhXggJ7scY-VwtM",
-    authDomain: "gametimeline-895d9.firebaseapp.com",
-    projectId: "gametimeline-895d9",
-    storageBucket: "gametimeline-895d9.firebasestorage.app",
-    messagingSenderId: "855161361770",
-    appId: "1:855161361770:web:9b0fee2a637df3d35c0113"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const auth = getAuth(app);
-
-  let currentUserDocId = null;  // Track user's doc for updates
-
-  // Sign in anonymously on load
-  signInAnonymously(auth)
-    .then((userCredential) => {
-      console.log('Signed in anonymously:', userCredential.user.uid);
-      initVisitors();
-    })
-    .catch((error) => {
-      console.error('Auth error:', error);
-    });
-
-  // Listen for auth state
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      console.log('User is signed in');
-    } else {
-      console.log('User is signed out');
-    }
-  });
-
-  // Auto-add visitor (only once per session)
-  async function addVisitor() {
-    if (localStorage.getItem('visitedToday')) {
-      // If already visited, try to load existing name
-      await loadMyName();
-      return;
-    }
-    localStorage.setItem('visitedToday', 'true');
-
-    const name = 'Anonymous Visitor';
-    try {
-      const docRef = await addDoc(collection(db, 'visitors'), {
-        name: name,
-        timestamp: serverTimestamp(),
-        userId: auth.currentUser.uid
-      });
-      currentUserDocId = docRef.id;
-      document.getElementById('nameInput').value = name;
-      console.log('Visitor logged:', name, 'Doc ID:', currentUserDocId);
-    } catch (error) {
-      console.error('Log error:', error);
-    }
-  }
-
-  // Load user's current name (if exists)
-  async function loadMyName() {
-    try {
-      const q = query(collection(db, 'visitors'), where('userId', '==', auth.currentUser.uid));
-      const snapshot = await getDocs(q);
-      if (!snapshot.empty) {
-        const userDoc = snapshot.docs[0];
-        currentUserDocId = userDoc.id;
-        const data = userDoc.data();
-        document.getElementById('nameInput').value = data.name || 'Anonymous Visitor';
-      }
-    } catch (error) {
-      console.error('Load name error:', error);
-    }
-  }
-
-  // Update name function (exposed globally)
-  window.updateName = async function() {
-    const newName = document.getElementById('nameInput').value.trim();
-    const statusEl = document.getElementById('rename-status');
-    
-    if (!newName) {
-      statusEl.textContent = 'Please enter a name.';
-      statusEl.style.color = 'red';
-      return;
-    }
-    
-    if (!currentUserDocId) {
-      statusEl.textContent = 'No visitor entry found. Reload to create one.';
-      statusEl.style.color = 'red';
-      return;
-    }
-    
-    try {
-      await updateDoc(doc(db, 'visitors', currentUserDocId), {
-        name: newName
-      });
-      statusEl.textContent = 'Name updated!';
-      statusEl.style.color = 'green';
-      await loadVisitors();  // Refresh board
-      console.log('Name updated to:', newName);
-    } catch (error) {
-      statusEl.textContent = 'Error: ' + error.message;
-      statusEl.style.color = 'red';
-      console.error('Update error:', error);
-    }
-  };
-
-  // Load and display visitors
-  async function loadVisitors() {
-    const listEl = document.getElementById('visitorList');
-    listEl.innerHTML = '<li>Loading...</li>';
-    
-    try {
-      const q = query(collection(db, 'visitors'), orderBy('timestamp', 'desc'), limit(10));
-      const snapshot = await getDocs(q);
-      listEl.innerHTML = '';
-      
-      if (snapshot.empty) {
-        listEl.innerHTML = '<li>No visitors yet!</li>';
-        return;
-      }
-      
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        const li = document.createElement('li');
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'name';
-        nameSpan.textContent = data.name;
-        
-        const timeSpan = document.createElement('span');
-        timeSpan.className = 'time';
-        if (data.timestamp && data.timestamp instanceof Timestamp) {
-          timeSpan.textContent = data.timestamp.toDate().toLocaleString();
-        } else {
-          timeSpan.textContent = 'Just now';
-        }
-        
-        li.appendChild(nameSpan);
-        li.appendChild(timeSpan);
-        listEl.appendChild(li);
-      });
-    } catch (error) {
-      console.error('Load error:', error);
-      listEl.innerHTML = '<li>Error loading visitors.</li>';
-    }
-  }
-
-  // Init: Add if new, load name, then load board
-  async function initVisitors() {
-    await addVisitor();
-    await loadVisitors();
-  }
-</script>
-
-</body>
-</html>
+        </div>

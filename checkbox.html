@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module Progress Tracker</title>
+    <style>
+        /* Default is Dark Mode */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 150px 20px;
+            background: linear-gradient(135deg, #232323 0%, #000000 100%);
+            background-attachment: fixed;
+            color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            max-height: 100vh;
+            box-sizing: border-box;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        /* Light Mode Styles */
+        body.light-mode {
+            background: linear-gradient(135deg, #f0f0f0 0%, #d5d5d5 100%);
+            color: #1a1a1a;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            width: 100%;
+            max-width: 1900px; /* Increased max-width */
+        }
+
+        .module-card {
+            /* Dark Mode Glassmorphism */
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+            
+            padding: 25px;
+            flex: 1;
+            min-width: 400px;
+            max-width: 600px; /* Increased width */
+            
+            max-height: 82vh;
+            overflow-y: auto;
+            transition: background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        /* Light Mode Card */
+        body.light-mode .module-card {
+            background: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            color: #ffffff;
+            text-align: center;
+            font-weight: 600;
+            margin-top: 0;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
+            transition: color 0.3s ease, border-bottom 0.3s ease;
+        }
+
+        body.light-mode h2 {
+            color: #000000;
+            border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .week-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .week-item {
+            display: flex;
+            align-items: center;
+            font-size: 1em;
+            cursor: pointer;
+        }
+
+        .week-item input[type="checkbox"] {
+            margin-right: 15px;
+            width: 20px;  /* Consistent size */
+            height: 20px; /* Consistent size */
+            flex-shrink: 0; /* Prevents checkbox from shrinking */
+            accent-color: #68f983;
+            cursor: pointer;
+            transition: accent-color 0.3s ease;
+        }
+        
+        body.light-mode .week-item input[type="checkbox"] {
+            accent-color: #000000;
+        }
+
+        .week-item label {
+            cursor: pointer;
+            flex-grow: 1;
+            line-height: 1.4;
+        }
+        
+        .list-divider {
+            font-size: 0.95em;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 10px;
+            margin-bottom: 5px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: color 0.3s ease, border-bottom 0.3s ease;
+        }
+
+        body.light-mode .list-divider {
+            color: #555;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        /* Custom Scrollbar */
+        .module-card::-webkit-scrollbar {
+            width: 8px;
+        }
+        .module-card::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        .module-card::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+        
+        body.light-mode .module-card::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        body.light-mode .module-card::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Theme Toggle Switch */
+        .theme-switch-wrapper {
+            position: fixed;
+            top: 15px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            z-index: 100;
+        }
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #555;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #ccc;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+            background-color: #333;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="theme-switch-wrapper">
+        <label class="theme-switch" for="theme-toggle">
+            <input type="checkbox" id="theme-toggle" />
+            <span class="slider"></span>
+        </label>
+    </div>
+
+    <div class="container">
+        <div class="module-card">
+            <h2>Module 14 - HCI</h2>
+            <div class="week-list" data-module="HCI">
+                <div class="list-divider">Module 14 - Checklist</div>
+                
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week1">
+                    <label for="HCI-week1">Week 1 — Kick-off, Research Planning & Module Introduction</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week2">
+                    <label for="HCI-week2">Week 2 — Competitor Analysis</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week3">
+                    <label for="HCI-week3">Week 3 — Accessibility & HCI Research</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week4">
+                    <label for="HCI-week4">Week 4 — Style Guide Development</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week5">
+                    <label for="HCI-week5">Week 5 — Wireframes & Menu Layouts</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week6">
+                    <label for="HCI-week6">Week 6 — Core Stats Icons (First Asset Creation)</label>
+                </div>
+
+                <div class="list-divider">October Half Term</div>
+
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week7">
+                    <label for="HCI-week7">Week 7 — Inventory Slot States & First Weapon/Tool Icons</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week8">
+                    <label for="HCI-week8">Week 8 — Crafting & Craft Station Icons + Menu Options</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week9">
+                    <label for="HCI-week9">Week 9 — Armour Icons & Overlay States</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week10">
+                    <label for="HCI-week10">Week 10 — Widget Textures (Panels, Buttons, Dividers)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week11">
+                    <label for="HCI-week11">Week 11 — UE5 Integration Pass #1 (DPI Scaling & Controller Focus)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week12">
+                    <label for="HCI-week12">Week 12 — Usability Testing #2 & Accessibility Sweep</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week13">
+                    <label for="HCI-week13">Week 13 — Small-size Legibility Checks & Export Pipeline</label>
+                </div>
+
+                <div class="list-divider">Christmas Break</div>
+
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week14">
+                    <label for="HCI-week14">Week 14 — Integration Pass #2 & Peer Review</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week15">
+                    <label for="HCI-week15">Week 15 — Finalising Assets & UE5 Widgets</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-weekFinal">
+                    <label for="HCI-weekFinal">Final Week — Polishing, Presentation & Submission Check</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-week17">
+                    <label for="HCI-week17">Week 17 - Resource</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="HCI-weekFinalInstructions">
+                    <label for="HCI-weekFinalInstructions">Final Submission Instructions — Module 14 (HCI Log & Project)</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="module-card">
+            <h2>Module 16 - Advanced 3D</h2>
+            <div class="week-list" data-module="Module16">
+                <div class="list-divider">Module 16 Assignment Brief</div>
+
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week1">
+                    <label for="Module16-week1">Week 1 - Transition Week — Introduction to Module 16</label>
+                </div>
+                
+                <div class="list-divider">Survive The Narrative</div>
+                
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week2">
+                    <label for="Module16-week2">Week 2 - Tool or Equipment — Silhouettes and Concept Development</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week3">
+                    <label for="Module16-week3">Week 3 - Tools & Equipment — 3D Modelling Part 1</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week4">
+                    <label for="Module16-week4">Week 4 - Tools & Equipment — 3D Modelling Part 2</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week5-6-Hostile">
+                    <label for="Module16-week5-6-Hostile">Week 5-6 - Hostile Creature — Silhouettes & Concept Development</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week5-6-Companion">
+                    <label for="Module16-week5-6-Companion">Week 5-6 - Companion Creature — Silhouettes & Concept Development</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week7-Formative">
+                    <label for="Module16-week7-Formative">Week 7 Formative Submission</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week7-Env">
+                    <label for="Module16-week7-Env">Week 7 - Environment Prop — Silhouettes & Concept Development</label>
+                </div>
+                
+                <div class="list-divider">Plant Concepts</div>
+                
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week8">
+                    <label for="Module16-week8">Week 8 - Basic Character — Silhouettes & Concept Development</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week9-UV">
+                    <label for="Module16-week9-UV">Week 9 - Tools & Equipment — UV Mapping</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week10-Companion">
+                    <label for="Module16-week10-Companion">Week 10 - Companion Creature — 3D Modelling Part 1</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week8-Env">
+                    <label for="Module16-week8-Env">Week 8 - Environment Prop — 3D Modelling Part 1</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week13">
+                    <label for="Module16-week13">Week 13 - Basic Character — 3D Modelling Part 1</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week24">
+                    <label for="Module16-week24">Week 24 - Hostile Creature — 3D Modelling Part 2</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week19">
+                    <label for="Module16-week19">Week 19 - Companion Creature — 3D Modelling Part 2</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week9-Env">
+                    <label for="Module16-week9-Env">Week 9 - Environment Prop — 3D Modelling Part 2</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week15">
+                    <label for="Module16-week15">Week 15 - Basic Character — UV Mapping</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week7-Texture">
+                    <label for="Module16-week7-Texture">Week 7 - Tools & Equipment — Texturing & Final Renders</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week25">
+                    <label for="Module16-week25">Week 25 - Hostile Creature — UV Mapping</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week20">
+                    <label for="Module16-week20">Week 20 - Companion Creature — UV Mapping</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week10-EnvUV">
+                    <label for="Module16-week10-EnvUV">Week 10 - Environment Prop — UV Mapping</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week14">
+                    <label for="Module16-week14">Week 14 - Basic Character — 3D Modelling Part 2</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week26">
+                    <label for="Module16-week26">Week 26 - Hostile Creature — Texturing & Final Renders</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week21">
+                    <label for="Module16-week21">Week 21 - Companion Creature — Texturing & Final Renders</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week11">
+                    <label for="Module16-week11">Week 11 - Environment Prop — Texturing & Final Renders</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week16">
+                    <label for="Module16-week16">Week 16 - Basic Character — Texturing & Final Renders</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week27">
+                    <label for="Module16-week27">Week 27 - Blog Writing — Drafting the 2000-Word Blog</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week28">
+                    <label for="Module16-week28">Week 28 - Blog Writing — Developing Critical Reflection</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week29">
+                    <label for="Module16-week29">Week 29 - Evaluation Writing — 800-Word Evaluation</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week30">
+                    <label for="Module16-week30">Week 30 - Final Week — Presentations & Submission</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="module-card">
+            <h2>Module 17 - Game Mechanics</h2>
+            <div class="week-list" data-module="Module17">
+                <div class="list-divider">Module Documentation</div>
+
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec01">
+                    <label for="Module17-lec01">Lecture 01 - The beginning of a long Road (Beginner)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec02">
+                    <label for="Module17-lec02">Lecture 02 - First Steps for Character Setup (Beginner)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec03">
+                    <label for="Module17-lec03">Lecture 03 - Inventory Setup (Beginner)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec04">
+                    <label for="Module17-lec04">Lecture 04 - Common UI and Widgets (Beginner)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec05">
+                    <label for="Module17-lec05">Lecture 05 - Inventory Layout And Inventory Widget (Intermediate)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec06">
+                    <label for="Module17-lec06">Lecture 06 - Inventory Slot Widget (Intermediate)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec07">
+                    <label for="Module17-lec07">Lecture 07 - Linking the Inventory Component with our UI (Difficult)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec08">
+                    <label for="Module17-lec08">Lecture 08 - Drag and Drop Functionality (Difficult)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec09">
+                    <label for="Module17-lec09">Lecture 09 - Setting up Platform Specific Input Button Icons (Beginner)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec10">
+                    <label for="Module17-lec10">Lecture 10 - Creating the HotBar Widget (Intermediate)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec11">
+                    <label for="Module17-lec11">Lecture 11 - From Chop Logic to Notification System (Intermediate)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec12">
+                    <label for="Module17-lec12">Lecture 12 - From Destructible Trees to Harvesting System (Intermediate)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec13">
+                    <label for="Module17-lec13">Lecture 13 - Items, FX and Controller Setup (Intermediate)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec14">
+                    <label for="Module17-lec14">Lecture 14 - Crafting Recipes (Expert)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec15">
+                    <label for="Module17-lec15">Lecture 15 - Player Stats (Intermediate)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec16">
+                    <label for="Module17-lec16">Lecture 16 - Consumables, Levelling up, Skill Points (Intermediate)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec17">
+                    <label for="Module17-lec17">Lecture 17 - Engram Logic (Expert)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec18">
+                    <label for="Module17-lec18">Lecture 18 - Armour Setup and Player Window (Expert)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec19">
+                    <label for="Module17-lec19">Lecture 19 - Creating The Building System (Expert)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec20">
+                    <label for="Module17-lec20">Lecture 20 - Creating Storage Containers (Expert)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec21">
+                    <label for="Module17-lec21">Lecture 21 - Weapons (Intermediate)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec22">
+                    <label for="Module17-lec22">Lecture 22 - New World (Fun!)</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module17-lec23">
+                    <label for="Module17-lec23">Lecture 23 - Multibiome / Procedural Foliage</label>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            const themeToggle = document.getElementById('theme-toggle');
+            const body = document.body;
+
+            // --- Load Saved Checkbox States ---
+            function loadCheckboxProgress() {
+                checkboxes.forEach(checkbox => {
+                    // Only apply to module checkboxes, not the theme toggle
+                    if (checkbox.id !== 'theme-toggle') {
+                        const savedState = localStorage.getItem(checkbox.id);
+                        if (savedState === 'true') {
+                            checkbox.checked = true;
+                        } else {
+                            checkbox.checked = false;
+                        }
+                    }
+                });
+            }
+
+            // --- Save Checkbox State on Change ---
+            function saveCheckboxProgress(event) {
+                localStorage.setItem(event.target.id, event.target.checked);
+            }
+
+            // --- Load Saved Theme ---
+            function loadTheme() {
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme === 'light') {
+                    body.classList.add('light-mode');
+                    themeToggle.checked = true;
+                } else {
+                    body.classList.remove('light-mode');
+                    themeToggle.checked = false;
+                }
+            }
+
+            // --- Save Theme on Change ---
+            function saveTheme() {
+                if (body.classList.contains('light-mode')) {
+                    localStorage.setItem('theme', 'light');
+                } else {
+                    localStorage.setItem('theme', 'dark');
+                }
+            }
+
+            // --- Add Event Listeners ---
+
+            // Checkboxes
+            checkboxes.forEach(checkbox => {
+                if (checkbox.id !== 'theme-toggle') {
+                    checkbox.addEventListener('change', saveCheckboxProgress);
+                }
+            });
+
+            // Theme Toggle
+            themeToggle.addEventListener('change', () => {
+                body.classList.toggle('light-mode');
+                saveTheme();
+            });
+
+            // --- Initial Load ---
+            loadCheckboxProgress();
+            loadTheme();
+        });
+    </script>
+</body>
+</html>
