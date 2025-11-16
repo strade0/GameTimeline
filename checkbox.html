@@ -150,7 +150,7 @@
         /* Theme Toggle Switch */
         .theme-switch-wrapper {
             position: fixed;
-            top: 15px;
+            top: 20px; /* Pushed down */
             right: 20px;
             display: flex;
             align-items: center;
@@ -197,6 +197,78 @@
             background-color: #333;
         }
 
+        /* --- NEW: Sync Controls --- */
+        .sync-controls {
+            position: fixed;
+            top: 70px; /* Positioned below theme toggle */
+            right: 20px;
+            
+            /* Glassmorphism */
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 99;
+            width: 200px; /* Give it a set width */
+        }
+        
+        body.light-mode .sync-controls {
+            background: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
+        }
+        
+        .sync-controls input[type="text"] {
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            outline: none;
+            transition: all 0.3s ease;
+            width: 100%;
+            box-sizing: border-box; /* Include padding in width */
+        }
+        
+        .sync-controls button {
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: none;
+            background: #68f983;
+            color: #1a1a1a;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .sync-controls button:hover {
+            opacity: 0.8;
+        }
+        
+        body.light-mode .sync-controls input[type="text"] {
+            border-color: rgba(0, 0, 0, 0.2);
+            background: rgba(0, 0, 0, 0.05);
+            color: #1a1a1a;
+        }
+        
+        body.light-mode .sync-controls button {
+            background: #000;
+            color: #fff;
+        }
+        
+        #sync-status {
+            font-size: 12px;
+            text-align: center;
+            opacity: 0.7;
+        }
+
     </style>
 </head>
 <body>
@@ -206,6 +278,13 @@
             <input type="checkbox" id="theme-toggle" />
             <span class="slider"></span>
         </label>
+    </div>
+
+    <!-- NEW: Sync UI -->
+    <div class="sync-controls">
+        <input type="text" id="sync-id" placeholder="Enter Sync ID">
+        <button id="sync-connect">Connect</button>
+        <span id="sync-status"></span>
     </div>
 
     <div class="container">
@@ -531,71 +610,213 @@
 
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-            const themeToggle = document.getElementById('theme-toggle');
-            const body = document.body;
+    <!-- SCRIPT SECTION -->
+    <script type="module">
+        // NEW: Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 
-            // --- Load Saved Checkbox States ---
-            function loadCheckboxProgress() {
-                checkboxes.forEach(checkbox => {
-                    // Only apply to module checkboxes, not the theme toggle
-                    if (checkbox.id !== 'theme-toggle') {
-                        const savedState = localStorage.getItem(checkbox.id);
-                        if (savedState === 'true') {
-                            checkbox.checked = true;
-                        } else {
-                            checkbox.checked = false;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            
+            // NEW: Firebase Config (copied from your timeline.html)
+            const firebaseConfig = {
+                apiKey: "AIzaSyA4oXzllt-5dk-TLG_wAhXggJ7scY-VwtM",
+                authDomain: "gametimeline-895d9.firebaseapp.com",
+                projectId: "gametimeline-895d9",
+                storageBucket: "gametimeline-895d9.firebasestorage.app",
+                messagingSenderId: "855161361770",
+                appId: "1:855161361770:web:9b0fee2a637df3d35c0113"
+            };
+
+            // NEW: Initialize Firebase
+            try {
+                const app = initializeApp(firebaseConfig);
+                const db = getFirestore(app);
+                const auth = getAuth(app);
+                setLogLevel('Debug'); // Optional: for seeing more logs in console
+
+                // NEW: Sign in anonymously *before* doing anything else
+                await signInAnonymously(auth);
+                console.log("Firebase Auth: Signed in anonymously.");
+            
+                // --- NEW Sync Variables ---
+                let currentSyncId = null;
+                let isSyncing = false; // Flag to prevent update loops
+                let unsubscribeSync = null; // Function to stop the listener
+
+                // --- Get All Elements ---
+                const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+                const themeToggle = document.getElementById('theme-toggle');
+                const body = document.body;
+                
+                // NEW: Sync UI Elements
+                const syncIdInput = document.getElementById('sync-id');
+                const syncConnectBtn = document.getElementById('sync-connect');
+                const syncStatus = document.getElementById('sync-status');
+
+
+                // --- Load Saved Checkbox States (Unchanged) ---
+                function loadCheckboxProgress() {
+                    console.log("Loading progress from localStorage...");
+                    checkboxes.forEach(checkbox => {
+                        if (checkbox.id !== 'theme-toggle') {
+                            const savedState = localStorage.getItem(checkbox.id);
+                            if (savedState === 'true') {
+                                checkbox.checked = true;
+                            } else {
+                                checkbox.checked = false;
+                            }
                         }
+                    });
+                }
+
+                // --- MODIFIED: Save Checkbox State (Now saves to Firebase) ---
+                function saveCheckboxProgress(event) {
+                    // 1. Save to local storage (for offline)
+                    localStorage.setItem(event.target.id, event.target.checked);
+                    
+                    // 2. Save to Firebase (if connected)
+                    if (currentSyncId && !isSyncing) {
+                        console.log(`Syncing change to Firebase: ${event.target.id} -> ${event.target.checked}`);
+                        // Use setDoc with merge:true to update just this one checkbox
+                        // This prevents conflicts if two users check different boxes at the same time
+                        setDoc(doc(db, "checkboxSync", currentSyncId), {
+                            [event.target.id]: event.target.checked
+                        }, { merge: true });
+                    }
+                }
+
+                // --- Load Saved Theme (Unchanged) ---
+                function loadTheme() {
+                    const savedTheme = localStorage.getItem('theme');
+                    if (savedTheme === 'light') {
+                        body.classList.add('light-mode');
+                        themeToggle.checked = true;
+                    } else {
+                        body.classList.remove('light-mode');
+                        themeToggle.checked = false;
+                    }
+                }
+
+                // --- Save Theme on Change (Unchanged) ---
+                function saveTheme() {
+                    if (body.classList.contains('light-mode')) {
+                        localStorage.setItem('theme', 'light');
+                    } else {
+                        localStorage.setItem('theme', 'dark');
+                    }
+                }
+                
+                // --- NEW: Sync Functions ---
+                
+                function connectToSync() {
+                    const newSyncId = syncIdInput.value.trim();
+                    if (!newSyncId) {
+                        syncStatus.textContent = "Please enter an ID.";
+                        return;
+                    }
+
+                    // Disconnect from old room if one exists
+                    if (unsubscribeSync) {
+                        unsubscribeSync();
+                    }
+
+                    currentSyncId = newSyncId;
+                    localStorage.setItem('savedSyncId', currentSyncId); // Remember this ID
+                    syncStatus.textContent = `Connecting...`;
+                    console.log(`Attempting to connect to Sync ID: ${currentSyncId}`);
+
+                    // --- 1. Listen for remote changes ---
+                    unsubscribeSync = onSnapshot(doc(db, "checkboxSync", currentSyncId), (doc) => {
+                        console.log("Firebase: Received remote snapshot.");
+                        if (doc.exists()) {
+                            const remoteData = doc.data();
+                            
+                            isSyncing = true; // Set flag to prevent save loop
+                            
+                            // Update local checkboxes from remote data
+                            checkboxes.forEach(checkbox => {
+                                if (checkbox.id !== 'theme-toggle' && remoteData[checkbox.id] !== undefined) {
+                                    // Only update if different, to be efficient
+                                    if (checkbox.checked !== remoteData[checkbox.id]) {
+                                        checkbox.checked = remoteData[checkbox.id];
+                                        // Also update local storage to match
+                                        localStorage.setItem(checkbox.id, remoteData[checkbox.id]);
+                                    }
+                                }
+                            });
+                            
+                            isSyncing = false; // Release flag
+                        } else {
+                            // Document doesn't exist, so push our current state
+                            console.log("Firebase: No remote doc, pushing local state.");
+                            pushFullLocalState();
+                        }
+                        syncStatus.textContent = `Connected`;
+                    }, (error) => {
+                        console.error("Sync error: ", error);
+                        syncStatus.textContent = "Error connecting.";
+                    });
+
+                    // --- 2. Push all current local states to Firebase ---
+                    // This merges our current state with whatever is on Firebase
+                    pushFullLocalState();
+                }
+
+                // Pushes the state of *all* checkboxes to Firebase
+                function pushFullLocalState() {
+                    if (!currentSyncId) return;
+
+                    console.log("Pushing full local state to Firebase...");
+                    const localState = {};
+                    checkboxes.forEach(checkbox => {
+                        if (checkbox.id !== 'theme-toggle') {
+                            localState[checkbox.id] = checkbox.checked;
+                        }
+                    });
+
+                    // Use setDoc with merge:true to non-destructively update
+                    setDoc(doc(db, "checkboxSync", currentSyncId), localState, { merge: true });
+                }
+
+
+                // --- Add Event Listeners ---
+
+                // Checkboxes
+                checkboxes.forEach(checkbox => {
+                    if (checkbox.id !== 'theme-toggle') {
+                        checkbox.addEventListener('change', saveCheckboxProgress);
                     }
                 });
-            }
 
-            // --- Save Checkbox State on Change ---
-            function saveCheckboxProgress(event) {
-                localStorage.setItem(event.target.id, event.target.checked);
-            }
+                // Theme Toggle
+                themeToggle.addEventListener('change', () => {
+                    body.classList.toggle('light-mode');
+                    saveTheme();
+                });
+                
+                // NEW: Sync Button
+                syncConnectBtn.addEventListener('click', connectToSync);
 
-            // --- Load Saved Theme ---
-            function loadTheme() {
-                const savedTheme = localStorage.getItem('theme');
-                if (savedTheme === 'light') {
-                    body.classList.add('light-mode');
-                    themeToggle.checked = true;
-                } else {
-                    body.classList.remove('light-mode');
-                    themeToggle.checked = false;
+
+                // --- Initial Load ---
+                loadCheckboxProgress(); // Load from local storage first
+                loadTheme();
+                
+                // NEW: Auto-connect to sync if an ID is saved
+                const savedSyncId = localStorage.getItem('savedSyncId');
+                if (savedSyncId) {
+                    syncIdInput.value = savedSyncId;
+                    connectToSync();
                 }
+            
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                syncStatus.textContent = "Firebase failed to load.";
             }
 
-            // --- Save Theme on Change ---
-            function saveTheme() {
-                if (body.classList.contains('light-mode')) {
-                    localStorage.setItem('theme', 'light');
-                } else {
-                    localStorage.setItem('theme', 'dark');
-                }
-            }
-
-            // --- Add Event Listeners ---
-
-            // Checkboxes
-            checkboxes.forEach(checkbox => {
-                if (checkbox.id !== 'theme-toggle') {
-                    checkbox.addEventListener('change', saveCheckboxProgress);
-                }
-            });
-
-            // Theme Toggle
-            themeToggle.addEventListener('change', () => {
-                body.classList.toggle('light-mode');
-                saveTheme();
-            });
-
-            // --- Initial Load ---
-            loadCheckboxProgress();
-            loadTheme();
         });
     </script>
 </body>
