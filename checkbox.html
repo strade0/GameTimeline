@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF--8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Module Progress Tracker</title>
     <style>
@@ -197,7 +197,7 @@
             background-color: #333;
         }
 
-        /* --- NEW: Sync Controls --- */
+        /* --- MODIFIED: Sync Controls --- */
         .sync-controls {
             position: fixed;
             top: 70px; /* Positioned below theme toggle */
@@ -212,11 +212,9 @@
             border-radius: 12px;
             
             padding: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
             z-index: 99;
             width: 200px; /* Give it a set width */
+            transition: background 0.3s ease, border 0.3s ease; /* Added transition */
         }
         
         body.light-mode .sync-controls {
@@ -225,6 +223,44 @@
             box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
         }
         
+        /* --- NEW: Sync Header (for collapsing) --- */
+        .sync-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: 600;
+            user-select: none; /* Prevents text selection on click */
+        }
+        
+        .collapse-arrow {
+            font-size: 1.1em;
+            transition: transform 0.3s ease;
+        }
+
+        /* --- NEW: Sync Content (the collapsible part) --- */
+        .sync-content {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px; /* Space from header */
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin-top 0.3s ease-out;
+            max-height: 150px; /* Set to a value larger than content */
+            opacity: 1;
+        }
+
+        /* --- NEW: Collapsed State --- */
+        .sync-controls.collapsed .sync-content {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+        }
+        
+        .sync-controls.collapsed .collapse-arrow {
+            transform: rotate(-90deg); /* Points arrow sideways (or up) */
+        }
+
         .sync-controls input[type="text"] {
             padding: 8px 10px;
             border-radius: 8px;
@@ -280,16 +316,20 @@
         </label>
     </div>
 
-    <!-- NEW: Sync UI -->
     <div class="sync-controls">
-        <input type="text" id="sync-id" placeholder="Enter Sync ID">
-        <button id="sync-connect">Connect</button>
-        <span id="sync-status"></span>
+        <div class="sync-header" id="sync-header">
+            <span>Sync Controls</span>
+            <span class="collapse-arrow">▼</span>
+        </div>
+        
+        <div class="sync-content">
+            <input type="text" id="sync-id" placeholder="Enter Sync ID">
+            <button id="sync-connect">Connect</button>
+            <span id="sync-status"></span>
+        </div>
     </div>
 
     <div class="container">
-        <!-- All your module-card divs go here -->
-        <!-- ... (Module 14) ... -->
         <div class="module-card">
             <h2>Module 14 - HCI</h2>
             <div class="week-list" data-module="HCI">
@@ -376,7 +416,6 @@
             </div>
         </div>
 
-        <!-- ... (Module 16) ... -->
         <div class="module-card">
             <h2>Module 16 - Advanced 3D</h2>
             <div class="week-list" data-module="Module16">
@@ -511,7 +550,6 @@
             </div>
         </div>
 
-        <!-- ... (Module 17) ... -->
         <div class="module-card">
             <h2>Module 17 - Game Mechanics</h2>
             <div class="week-list" data-module="Module17">
@@ -614,7 +652,6 @@
 
     </div>
 
-    <!-- SCRIPT SECTION -->
     <script type="module">
         // NEW: Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
@@ -655,10 +692,14 @@
                 const themeToggle = document.getElementById('theme-toggle');
                 const body = document.body;
                 
-                // NEW: Sync UI Elements
+                // MODIFIED: Sync UI Elements
                 const syncIdInput = document.getElementById('sync-id');
                 const syncConnectBtn = document.getElementById('sync-connect');
                 const syncStatus = document.getElementById('sync-status');
+                
+                // --- NEW: Collapse Elements ---
+                const syncControls = document.querySelector('.sync-controls');
+                const syncHeader = document.getElementById('sync-header');
 
 
                 // --- Load Saved Checkbox States (Unchanged) ---
@@ -825,10 +866,29 @@
                 // NEW: Sync Button
                 syncConnectBtn.addEventListener('click', connectToSync);
 
+                // --- NEW: Sync Collapse Toggle ---
+                if (syncHeader) {
+                    syncHeader.addEventListener('click', () => {
+                        syncControls.classList.toggle('collapsed');
+                        const isCollapsed = syncControls.classList.contains('collapsed');
+                        // Save state
+                        localStorage.setItem('syncCollapsed', isCollapsed);
+                    });
+                }
+
 
                 // --- Initial Load ---
                 loadCheckboxProgress(); // Load from local storage first
                 loadTheme();
+                
+                // --- NEW: Load Collapse State ---
+                function loadSyncCollapseState() {
+                    const isCollapsed = localStorage.getItem('syncCollapsed') === 'true';
+                    if (isCollapsed) {
+                        syncControls.classList.add('collapsed');
+                    }
+                }
+                loadSyncCollapseState(); // Call the function
                 
                 // NEW: Auto-connect to sync if an ID is saved
                 const savedSyncId = localStorage.getItem('savedSyncId');
