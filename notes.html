@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Notes</title>
+    <style>
+        /* --- Core Styles --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: linear-gradient(135deg, #232323 0%, #000000 100%);
+            background-attachment: fixed;
+            color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        body.light-mode {
+            background: linear-gradient(135deg, #f0f0f0 0%, #d5d5d5 100%);
+            color: #1a1a1a;
+        }
+
+        /* --- Main Container (70vw / 80vh) --- */
+        .notes-container {
+            /* Glassmorphism */
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+
+            width: 70vw;
+            height: 80vh;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        body.light-mode .notes-container {
+            background: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 0;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        body.light-mode h1 { border-bottom-color: rgba(0,0,0,0.1); }
+
+        /* --- Notes List Area --- */
+        .notes-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            align-content: start;
+        }
+
+        /* Note Card Item */
+        .note-card {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            display: flex;
+            flex-direction: column;
+            height: 140px;
+            border: 1px solid transparent;
+        }
+        body.light-mode .note-card { background: rgba(255,255,255,0.6); border: 1px solid rgba(0,0,0,0.05); }
+        
+        .note-card:hover {
+            transform: translateY(-3px);
+            background: rgba(255,255,255,0.15);
+        }
+        body.light-mode .note-card:hover { background: rgba(255,255,255,0.9); }
+
+        .note-card h3 { margin: 0 0 10px 0; font-size: 1.1em; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;}
+        .note-card p { font-size: 0.85em; opacity: 0.7; margin: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+        .note-card .date { font-size: 0.75em; margin-top: auto; opacity: 0.5; text-align: right; padding-top: 5px;}
+
+        /* --- Add Note Button --- */
+        .add-btn-wrapper {
+            display: flex;
+            justify-content: center;
+        }
+
+        .add-note-btn {
+            background: #68f983;
+            color: #1a1a1a;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1em;
+            cursor: pointer;
+            transition: opacity 0.3s, transform 0.2s;
+            box-shadow: 0 4px 15px rgba(104, 249, 131, 0.3);
+        }
+        body.light-mode .add-note-btn { background: #1a1a1a; color: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        
+        .add-note-btn:hover { opacity: 0.9; transform: scale(1.05); }
+        .add-note-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; background: #555;}
+
+
+        /* --- Editor Modal (90vw / 90vh) --- */
+        .editor-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .editor-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .editor-window {
+            width: 90vw;
+            height: 90vh;
+            background: #232323;
+            border-radius: 12px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        body.light-mode .editor-window { background: #f5f5f5; color: #1a1a1a; border: 1px solid rgba(0,0,0,0.1); }
+
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .title-input {
+            font-size: 1.5em;
+            font-weight: bold;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid rgba(255,255,255,0.1);
+            color: inherit;
+            width: 60%;
+            padding: 5px;
+            outline: none;
+        }
+        body.light-mode .title-input { border-bottom-color: rgba(0,0,0,0.1); }
+        .title-input:focus { border-bottom-color: #68f983; }
+
+        .editor-actions { display: flex; gap: 10px; }
+        .editor-actions button {
+            padding: 8px 15px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .btn-save { background: #68f983; color: #1a1a1a; }
+        .btn-close { background: rgba(255,255,255,0.1); color: #fff; }
+        .btn-delete { background: #ff4d4d; color: white; }
+        
+        body.light-mode .btn-save { background: #1a1a1a; color: #fff; }
+        body.light-mode .btn-close { background: rgba(0,0,0,0.1); color: #1a1a1a; }
+
+        textarea {
+            flex-grow: 1;
+            background: rgba(0,0,0,0.2);
+            border: none;
+            border-radius: 8px;
+            padding: 20px;
+            color: inherit;
+            font-family: inherit;
+            font-size: 1.1em;
+            resize: none;
+            outline: none;
+            line-height: 1.6;
+        }
+        body.light-mode textarea { background: rgba(255,255,255,0.5); box-shadow: inset 0 2px 5px rgba(0,0,0,0.05); }
+
+        /* --- Theme Toggle (Copied) --- */
+        .theme-switch-wrapper { position: fixed; top: 20px; right: 20px; z-index: 100; }
+        .theme-switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+        .theme-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #ccc; }
+        input:checked + .slider:before { transform: translateX(26px); background-color: #333; }
+
+        /* --- Sync Controls (Copied from Checkbox) --- */
+        .sync-controls {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            z-index: 99;
+            width: 200px;
+            transition: background 0.3s ease, border 0.3s ease;
+        }
+        body.light-mode .sync-controls {
+            background: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
+        }
+        .sync-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: 600;
+            user-select: none;
+            font-size: 0.9em;
+        }
+        .collapse-arrow { font-size: 1.1em; transition: transform 0.3s ease; }
+        .sync-content {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin-top 0.3s ease-out;
+            max-height: 150px;
+            opacity: 1;
+        }
+        .sync-controls.collapsed .sync-content { max-height: 0; opacity: 0; margin-top: 0; }
+        .sync-controls.collapsed .collapse-arrow { transform: rotate(-90deg); }
+        .sync-controls input[type="text"] {
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            outline: none;
+            transition: all 0.3s ease;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 0.9em;
+        }
+        .sync-controls button {
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: none;
+            background: #68f983;
+            color: #1a1a1a;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+        }
+        .sync-controls button:hover { opacity: 0.8; }
+        body.light-mode .sync-controls input[type="text"] { border-color: rgba(0, 0, 0, 0.2); background: rgba(0, 0, 0, 0.05); color: #1a1a1a; }
+        body.light-mode .sync-controls button { background: #000; color: #fff; }
+        #sync-status { font-size: 12px; text-align: center; opacity: 0.7; }
+
+        /* Loading spinner for list */
+        .loading-msg { width: 100%; text-align: center; padding: 20px; opacity: 0.6; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Theme Toggle -->
+    <div class="theme-switch-wrapper">
+        <label class="theme-switch" for="theme-toggle">
+            <input type="checkbox" id="theme-toggle" />
+            <span class="slider"></span>
+        </label>
+    </div>
+
+    <!-- Sync Controls -->
+    <div class="sync-controls">
+        <div class="sync-header" id="sync-header">
+            <span>Sync Controls</span>
+            <span class="collapse-arrow">▼</span>
+        </div>
+        <div class="sync-content">
+            <input type="text" id="sync-id" placeholder="Enter Sync ID">
+            <button id="sync-connect">Connect</button>
+            <span id="sync-status">Disconnected</span>
+        </div>
+    </div>
+
+    <!-- Main Notes Interface -->
+    <div class="notes-container">
+        <h1>My Notes</h1>
+        <div class="notes-list" id="notesList">
+            <p class="loading-msg">Please connect to a Sync ID to view notes.</p>
+        </div>
+        <div class="add-btn-wrapper">
+            <button class="add-note-btn" id="btnAddNote" onclick="openEditor()" disabled>+ Add New Note</button>
+        </div>
+    </div>
+
+    <!-- Editor Modal (Hidden by default) -->
+    <div class="editor-overlay" id="editorOverlay">
+        <div class="editor-window">
+            <div class="editor-header">
+                <input type="text" id="noteTitle" class="title-input" placeholder="Note Title (e.g., Week 1)">
+                <div class="editor-actions">
+                    <button class="btn-delete" id="btnDelete" style="display:none;">Delete</button>
+                    <button class="btn-close" onclick="closeEditor()">Close</button>
+                    <button class="btn-save" id="btnSave">Save Document</button>
+                </div>
+            </div>
+            <textarea id="noteContent" placeholder="Type your notes here..."></textarea>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- Firebase Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+        import { 
+            getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc 
+        } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+
+        // --- Firebase Config ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4oXzllt-5dk-TLG_wAhXggJ7scY-VwtM",
+            authDomain: "gametimeline-895d9.firebaseapp.com",
+            projectId: "gametimeline-895d9",
+            storageBucket: "gametimeline-895d9.firebasestorage.app",
+            messagingSenderId: "855161361770",
+            appId: "1:855161361770:web:9b0fee2a637df3d35c0113"
+        };
+
+        // --- Global Variables ---
+        let db;
+        let currentSyncId = null;
+        let unsubscribe = null; // To stop listening to old rooms
+        let currentNoteId = null; // ID of note currently being edited
+        
+        // --- DOM Elements ---
+        const notesList = document.getElementById('notesList');
+        const editorOverlay = document.getElementById('editorOverlay');
+        const titleInput = document.getElementById('noteTitle');
+        const contentInput = document.getElementById('noteContent');
+        const deleteBtn = document.getElementById('btnDelete');
+        const saveBtn = document.getElementById('btnSave');
+        const addBtn = document.getElementById('btnAddNote');
+        
+        const syncIdInput = document.getElementById('sync-id');
+        const syncConnectBtn = document.getElementById('sync-connect');
+        const syncStatus = document.getElementById('sync-status');
+        const syncControls = document.querySelector('.sync-controls');
+        const syncHeader = document.getElementById('sync-header');
+        const themeToggle = document.getElementById('theme-toggle');
+
+        // --- Init Firebase ---
+        async function init() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                const auth = getAuth(app);
+                await signInAnonymously(auth);
+                console.log("Firebase Connected");
+
+                // Auto-connect if ID exists
+                const savedId = localStorage.getItem('savedSyncId');
+                if (savedId) {
+                    syncIdInput.value = savedId;
+                    connectToSync();
+                }
+
+            } catch (err) {
+                console.error("Firebase Init Error", err);
+                syncStatus.textContent = "Error loading DB";
+            }
+        }
+
+        // --- Sync Logic ---
+        window.connectToSync = function() {
+            const newId = syncIdInput.value.trim();
+            if(!newId) return;
+
+            // Don't reconnect to same room
+            if (newId === currentSyncId) return;
+
+            // Unsubscribe from previous room
+            if (unsubscribe) unsubscribe();
+
+            currentSyncId = newId;
+            localStorage.setItem('savedSyncId', currentSyncId);
+            syncStatus.textContent = "Connecting...";
+            notesList.innerHTML = '<p class="loading-msg">Loading notes...</p>';
+            addBtn.disabled = true; // Disable add until connected
+
+            // Listen to sub-collection: note_rooms/{SyncID}/notes
+            // This is a real-time listener. It fires when you connect, 
+            // AND when data changes on another device.
+            const notesCollectionRef = collection(db, "note_rooms", currentSyncId, "notes");
+            
+            unsubscribe = onSnapshot(notesCollectionRef, (snapshot) => {
+                const notesData = [];
+                snapshot.forEach((doc) => {
+                    notesData.push({ id: doc.id, ...doc.data() });
+                });
+                renderNotes(notesData);
+                syncStatus.textContent = "Connected";
+                addBtn.disabled = false;
+            }, (error) => {
+                console.error("Sync Error:", error);
+                syncStatus.textContent = "Connection Failed";
+                notesList.innerHTML = '<p class="loading-msg">Error loading notes.</p>';
+            });
+        };
+
+        // --- Render Logic ---
+        function renderNotes(notes) {
+            notesList.innerHTML = '';
+            
+            // Sort by updated time (newest first)
+            notes.sort((a, b) => b.updatedAt - a.updatedAt);
+
+            if (notes.length === 0) {
+                notesList.innerHTML = '<p class="loading-msg">No notes found for this ID.</p>';
+                return;
+            }
+
+            notes.forEach(note => {
+                const card = document.createElement('div');
+                card.className = 'note-card';
+                const date = new Date(note.updatedAt).toLocaleDateString() + ' ' + new Date(note.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                card.innerHTML = `
+                    <h3>${escapeHtml(note.title || 'Untitled')}</h3>
+                    <p>${escapeHtml(note.content || '')}</p>
+                    <div class="date">${date}</div>
+                `;
+                
+                // Pass the ID to the open function
+                card.addEventListener('click', () => openEditor(note.id, note));
+                notesList.appendChild(card);
+            });
+        }
+
+        // --- Editor Logic ---
+        window.openEditor = function(id = null, noteData = null) {
+            currentNoteId = id;
+            editorOverlay.classList.add('active');
+            
+            if (id && noteData) {
+                // Edit Mode
+                titleInput.value = noteData.title || "";
+                contentInput.value = noteData.content || "";
+                deleteBtn.style.display = 'inline-block';
+            } else {
+                // New Mode
+                titleInput.value = '';
+                contentInput.value = '';
+                deleteBtn.style.display = 'none';
+                // Generate a new ID for the new note based on timestamp
+                currentNoteId = 'note_' + Date.now();
+                titleInput.focus();
+            }
+        };
+
+        window.closeEditor = function() {
+            editorOverlay.classList.remove('active');
+            currentNoteId = null;
+        };
+
+        // --- Save to Firebase (Manually triggered) ---
+        saveBtn.addEventListener('click', async () => {
+            if (!currentSyncId) {
+                alert("Not connected to a Sync ID!");
+                return;
+            }
+
+            const title = titleInput.value.trim();
+            const content = contentInput.value.trim();
+
+            // Don't save completely empty notes
+            if (!title && !content) {
+                closeEditor();
+                return;
+            }
+
+            saveBtn.textContent = "Saving...";
+            saveBtn.disabled = true;
+
+            try {
+                // Path: note_rooms/{SyncID}/notes/{NoteID}
+                const noteRef = doc(db, "note_rooms", currentSyncId, "notes", currentNoteId);
+                
+                const noteData = {
+                    title: title,
+                    content: content,
+                    updatedAt: Date.now()
+                };
+
+                // setDoc with merge: true acts as "Create or Update"
+                await setDoc(noteRef, noteData, { merge: true });
+                
+                closeEditor();
+            } catch (e) {
+                console.error("Save failed", e);
+                alert("Failed to save note. Check connection.");
+            } finally {
+                saveBtn.textContent = "Save Document";
+                saveBtn.disabled = false;
+            }
+        });
+
+        // --- Delete from Firebase ---
+        deleteBtn.addEventListener('click', async () => {
+            if(confirm("Are you sure you want to permanently delete this note?")) {
+                if (!currentSyncId || !currentNoteId) return;
+
+                deleteBtn.textContent = "...";
+                try {
+                    // Path: note_rooms/{SyncID}/notes/{NoteID}
+                    const noteRef = doc(db, "note_rooms", currentSyncId, "notes", currentNoteId);
+                    await deleteDoc(noteRef);
+                    closeEditor();
+                } catch (e) {
+                    console.error("Delete failed", e);
+                    alert("Failed to delete note.");
+                    deleteBtn.textContent = "Delete";
+                }
+            }
+        });
+
+        // --- Helper: Escape HTML to prevent XSS ---
+        function escapeHtml(text) {
+            if (!text) return "";
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // --- Event Listeners ---
+        syncConnectBtn.addEventListener('click', connectToSync);
+        
+        if (syncHeader) {
+            syncHeader.addEventListener('click', () => {
+                syncControls.classList.toggle('collapsed');
+                localStorage.setItem('syncCollapsed', syncControls.classList.contains('collapsed'));
+            });
+        }
+        
+        // Close on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && editorOverlay.classList.contains('active')) {
+                closeEditor();
+            }
+        });
+
+        // --- Theme Logic ---
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-mode');
+                themeToggle.checked = true;
+            } else {
+                document.body.classList.remove('light-mode');
+                themeToggle.checked = false;
+            }
+        }
+        
+        themeToggle.addEventListener('change', () => {
+            document.body.classList.toggle('light-mode');
+            if (document.body.classList.contains('light-mode')) {
+                localStorage.setItem('theme', 'light');
+            } else {
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+        
+        function loadSyncCollapseState() {
+            const isCollapsed = localStorage.getItem('syncCollapsed') === 'true';
+            if (isCollapsed) syncControls.classList.add('collapsed');
+        }
+
+        // Run startup
+        loadTheme();
+        loadSyncCollapseState();
+        init();
+
+    </script>
+</body>
+</html>
