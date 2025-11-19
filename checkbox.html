@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF--8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Module Progress Tracker</title>
     <style>
@@ -33,7 +33,7 @@
             justify-content: center;
             gap: 30px;
             width: 100%;
-            max-width: 1900px; /* Increased max-width */
+            max-width: 1900px;
         }
 
         .module-card {
@@ -48,7 +48,7 @@
             padding: 25px;
             flex: 1;
             min-width: 400px;
-            max-width: 600px; /* Increased width */
+            max-width: 600px;
             
             max-height: 82vh;
             overflow-y: auto;
@@ -93,9 +93,9 @@
 
         .week-item input[type="checkbox"] {
             margin-right: 15px;
-            width: 20px;  /* Consistent size */
-            height: 20px; /* Consistent size */
-            flex-shrink: 0; /* Prevents checkbox from shrinking */
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
             accent-color: #68f983;
             cursor: pointer;
             transition: accent-color 0.3s ease;
@@ -150,7 +150,7 @@
         /* Theme Toggle Switch */
         .theme-switch-wrapper {
             position: fixed;
-            top: 20px; /* Pushed down */
+            top: 20px;
             right: 20px;
             display: flex;
             align-items: center;
@@ -197,24 +197,21 @@
             background-color: #333;
         }
 
-        /* --- MODIFIED: Sync Controls --- */
+        /* Sync Controls */
         .sync-controls {
             position: fixed;
-            top: 70px; /* Positioned below theme toggle */
+            top: 70px;
             right: 20px;
-            
-            /* Glassmorphism */
             background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.15);
             box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.1);
             border-radius: 12px;
-            
             padding: 15px;
             z-index: 99;
-            width: 200px; /* Give it a set width */
-            transition: background 0.3s ease, border 0.3s ease; /* Added transition */
+            width: 200px;
+            transition: background 0.3s ease, border 0.3s ease;
         }
         
         body.light-mode .sync-controls {
@@ -223,14 +220,13 @@
             box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
         }
         
-        /* --- NEW: Sync Header (for collapsing) --- */
         .sync-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
             font-weight: 600;
-            user-select: none; /* Prevents text selection on click */
+            user-select: none;
         }
         
         .collapse-arrow {
@@ -238,19 +234,17 @@
             transition: transform 0.3s ease;
         }
 
-        /* --- NEW: Sync Content (the collapsible part) --- */
         .sync-content {
             display: flex;
             flex-direction: column;
             gap: 10px;
-            margin-top: 15px; /* Space from header */
+            margin-top: 15px;
             overflow: hidden;
             transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin-top 0.3s ease-out;
-            max-height: 150px; /* Set to a value larger than content */
+            max-height: 150px;
             opacity: 1;
         }
 
-        /* --- NEW: Collapsed State --- */
         .sync-controls.collapsed .sync-content {
             max-height: 0;
             opacity: 0;
@@ -258,7 +252,7 @@
         }
         
         .sync-controls.collapsed .collapse-arrow {
-            transform: rotate(-90deg); /* Points arrow sideways (or up) */
+            transform: rotate(-90deg);
         }
 
         .sync-controls input[type="text"] {
@@ -270,7 +264,7 @@
             outline: none;
             transition: all 0.3s ease;
             width: 100%;
-            box-sizing: border-box; /* Include padding in width */
+            box-sizing: border-box;
         }
         
         .sync-controls button {
@@ -419,15 +413,12 @@
         <div class="module-card">
             <h2>Module 16 - Advanced 3D</h2>
             <div class="week-list" data-module="Module16">
-                <div class="list-divider">Module 16 Assignment Brief</div>
+                <div class="list-divider">Phase 1: Concepts & Modelling</div>
 
                 <div class="week-item">
                     <input type="checkbox" id="Module16-week1">
                     <label for="Module16-week1">Week 1 - Transition Week — Introduction to Module 16</label>
                 </div>
-                
-                <div class="list-divider">Survive The Narrative</div>
-                
                 <div class="week-item">
                     <input type="checkbox" id="Module16-week2">
                     <label for="Module16-week2">Week 2 - Tool or Equipment — Silhouettes and Concept Development</label>
@@ -448,6 +439,9 @@
                     <input type="checkbox" id="Module16-week5-6-Companion">
                     <label for="Module16-week5-6-Companion">Week 5-6 - Companion Creature — Silhouettes & Concept Development</label>
                 </div>
+                
+                <div class="list-divider">Phase 2: Formative & Assets</div>
+
                 <div class="week-item">
                     <input type="checkbox" id="Module16-week7-Formative">
                     <label for="Module16-week7-Formative">Week 7 Formative Submission</label>
@@ -456,80 +450,80 @@
                     <input type="checkbox" id="Module16-week7-Env">
                     <label for="Module16-week7-Env">Week 7 - Environment Prop — Silhouettes & Concept Development</label>
                 </div>
-                
-                <div class="list-divider">Plant Concepts</div>
-                
+                 <div class="week-item">
+                    <input type="checkbox" id="Module16-week7-Texture">
+                    <label for="Module16-week7-Texture">Week 7 - Tools & Equipment — Texturing & Final Renders</label>
+                </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module16-week8">
                     <label for="Module16-week8">Week 8 - Basic Character — Silhouettes & Concept Development</label>
-                </div>
-                <div class="week-item">
-                    <input type="checkbox" id="Module16-week9-UV">
-                    <label for="Module16-week9-UV">Week 9 - Tools & Equipment — UV Mapping</label>
-                </div>
-                <div class="week-item">
-                    <input type="checkbox" id="Module16-week10-Companion">
-                    <label for="Module16-week10-Companion">Week 10 - Companion Creature — 3D Modelling Part 1</label>
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module16-week8-Env">
                     <label for="Module16-week8-Env">Week 8 - Environment Prop — 3D Modelling Part 1</label>
                 </div>
                 <div class="week-item">
-                    <input type="checkbox" id="Module16-week13">
-                    <label for="Module16-week13">Week 13 - Basic Character — 3D Modelling Part 1</label>
+                    <input type="checkbox" id="Module16-week9-UV">
+                    <label for="Module16-week9-UV">Week 9 - Tools & Equipment — UV Mapping</label>
                 </div>
-                <div class="week-item">
-                    <input type="checkbox" id="Module16-week24">
-                    <label for="Module16-week24">Week 24 - Hostile Creature — 3D Modelling Part 2</label>
-                </div>
-                <div class="week-item">
-                    <input type="checkbox" id="Module16-week19">
-                    <label for="Module16-week19">Week 19 - Companion Creature — 3D Modelling Part 2</label>
-                </div>
-                <div class="week-item">
+                 <div class="week-item">
                     <input type="checkbox" id="Module16-week9-Env">
                     <label for="Module16-week9-Env">Week 9 - Environment Prop — 3D Modelling Part 2</label>
                 </div>
                 <div class="week-item">
-                    <input type="checkbox" id="Module16-week15">
-                    <label for="Module16-week15">Week 15 - Basic Character — UV Mapping</label>
+                    <input type="checkbox" id="Module16-week10-Companion">
+                    <label for="Module16-week10-Companion">Week 10 - Companion Creature — 3D Modelling Part 1</label>
                 </div>
-                <div class="week-item">
-                    <input type="checkbox" id="Module16-week7-Texture">
-                    <label for="Module16-week7-Texture">Week 7 - Tools & Equipment — Texturing & Final Renders</label>
-                </div>
-                <div class="week-item">
-                    <input type="checkbox" id="Module16-week25">
-                    <label for="Module16-week25">Week 25 - Hostile Creature — UV Mapping</label>
-                </div>
-                <div class="week-item">
-                    <input type="checkbox" id="Module16-week20">
-                    <label for="Module16-week20">Week 20 - Companion Creature — UV Mapping</label>
-                </div>
-                <div class="week-item">
+                 <div class="week-item">
                     <input type="checkbox" id="Module16-week10-EnvUV">
                     <label for="Module16-week10-EnvUV">Week 10 - Environment Prop — UV Mapping</label>
-                </div>
-                <div class="week-item">
-                    <input type="checkbox" id="Module16-week14">
-                    <label for="Module16-week14">Week 14 - Basic Character — 3D Modelling Part 2</label>
-                </div>
-                <div class="week-item">
-                    <input type="checkbox" id="Module16-week26">
-                    <label for="Module16-week26">Week 26 - Hostile Creature — Texturing & Final Renders</label>
-                </div>
-                <div class="week-item">
-                    <input type="checkbox" id="Module16-week21">
-                    <label for="Module16-week21">Week 21 - Companion Creature — Texturing & Final Renders</label>
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module16-week11">
                     <label for="Module16-week11">Week 11 - Environment Prop — Texturing & Final Renders</label>
                 </div>
                 <div class="week-item">
+                    <input type="checkbox" id="Module16-week13">
+                    <label for="Module16-week13">Week 13 - Basic Character — 3D Modelling Part 1</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week14">
+                    <label for="Module16-week14">Week 14 - Basic Character — 3D Modelling Part 2</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week15">
+                    <label for="Module16-week15">Week 15 - Basic Character — UV Mapping</label>
+                </div>
+                <div class="week-item">
                     <input type="checkbox" id="Module16-week16">
                     <label for="Module16-week16">Week 16 - Basic Character — Texturing & Final Renders</label>
+                </div>
+                
+                <div class="list-divider">Phase 3: Creatures & Final</div>
+
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week19">
+                    <label for="Module16-week19">Week 19 - Companion Creature — 3D Modelling Part 2</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week20">
+                    <label for="Module16-week20">Week 20 - Companion Creature — UV Mapping</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week21">
+                    <label for="Module16-week21">Week 21 - Companion Creature — Texturing & Final Renders</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week24">
+                    <label for="Module16-week24">Week 24 - Hostile Creature — 3D Modelling Part 2</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week25">
+                    <label for="Module16-week25">Week 25 - Hostile Creature — UV Mapping</label>
+                </div>
+                <div class="week-item">
+                    <input type="checkbox" id="Module16-week26">
+                    <label for="Module16-week26">Week 26 - Hostile Creature — Texturing & Final Renders</label>
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module16-week27">
@@ -653,15 +647,14 @@
     </div>
 
     <script type="module">
-        // NEW: Import Firebase modules
+        // Firebase Import
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 
-
         document.addEventListener('DOMContentLoaded', async () => {
             
-            // NEW: Firebase Config (copied from your timeline.html)
+            // Firebase Config 
             const firebaseConfig = {
                 apiKey: "AIzaSyA4oXzllt-5dk-TLG_wAhXggJ7scY-VwtM",
                 authDomain: "gametimeline-895d9.firebaseapp.com",
@@ -671,40 +664,31 @@
                 appId: "1:855161361770:web:9b0fee2a637df3d35c0113"
             };
 
-            // NEW: Initialize Firebase
             try {
                 const app = initializeApp(firebaseConfig);
                 const db = getFirestore(app);
                 const auth = getAuth(app);
-                setLogLevel('Debug'); // Optional: for seeing more logs in console
+                // setLogLevel('Debug'); 
 
-                // NEW: Sign in anonymously *before* doing anything else
                 await signInAnonymously(auth);
                 console.log("Firebase Auth: Signed in anonymously.");
             
-                // --- NEW Sync Variables ---
                 let currentSyncId = null;
-                let isSyncing = false; // Flag to prevent update loops
-                let unsubscribeSync = null; // Function to stop the listener
+                let isSyncing = false;
+                let unsubscribeSync = null;
 
-                // --- Get All Elements ---
                 const checkboxes = document.querySelectorAll('input[type="checkbox"]');
                 const themeToggle = document.getElementById('theme-toggle');
                 const body = document.body;
                 
-                // MODIFIED: Sync UI Elements
                 const syncIdInput = document.getElementById('sync-id');
                 const syncConnectBtn = document.getElementById('sync-connect');
                 const syncStatus = document.getElementById('sync-status');
-                
-                // --- NEW: Collapse Elements ---
                 const syncControls = document.querySelector('.sync-controls');
                 const syncHeader = document.getElementById('sync-header');
 
 
-                // --- Load Saved Checkbox States (Unchanged) ---
                 function loadCheckboxProgress() {
-                    console.log("Loading progress from localStorage...");
                     checkboxes.forEach(checkbox => {
                         if (checkbox.id !== 'theme-toggle') {
                             const savedState = localStorage.getItem(checkbox.id);
@@ -717,23 +701,16 @@
                     });
                 }
 
-                // --- MODIFIED: Save Checkbox State (Now saves to Firebase) ---
                 function saveCheckboxProgress(event) {
-                    // 1. Save to local storage (for offline)
                     localStorage.setItem(event.target.id, event.target.checked);
                     
-                    // 2. Save to Firebase (if connected)
                     if (currentSyncId && !isSyncing) {
-                        console.log(`Syncing change to Firebase: ${event.target.id} -> ${event.target.checked}`);
-                        // Use setDoc with merge:true to update just this one checkbox
-                        // This prevents conflicts if two users check different boxes at the same time
                         setDoc(doc(db, "checkboxSync", currentSyncId), {
                             [event.target.id]: event.target.checked
                         }, { merge: true });
                     }
                 }
 
-                // --- Load Saved Theme (Unchanged) ---
                 function loadTheme() {
                     const savedTheme = localStorage.getItem('theme');
                     if (savedTheme === 'light') {
@@ -745,7 +722,6 @@
                     }
                 }
 
-                // --- Save Theme on Change (Unchanged) ---
                 function saveTheme() {
                     if (body.classList.contains('light-mode')) {
                         localStorage.setItem('theme', 'light');
@@ -754,18 +730,13 @@
                     }
                 }
                 
-                // --- **** NEW HELPER FUNCTION **** ---
-                // This visually resets all checkboxes to 'false'
                 function resetCheckboxesUI() {
-                    console.log("Resetting all checkboxes UI to false.");
                     checkboxes.forEach(checkbox => {
                         if (checkbox.id !== 'theme-toggle') {
                             checkbox.checked = false;
                         }
                     });
                 }
-                
-                // --- MODIFIED: Sync Functions ---
                 
                 function connectToSync() {
                     const newSyncId = syncIdInput.value.trim();
@@ -774,51 +745,36 @@
                         return;
                     }
 
-                    // --- NEW: Check if we are actually changing rooms ---
                     if (newSyncId === currentSyncId) {
-                        console.log("Already connected to this ID.");
-                        return; // Do nothing if it's the same ID
+                        return;
                     }
 
-                    // Disconnect from old room if one exists
                     if (unsubscribeSync) {
                         unsubscribeSync();
-                        console.log("Disconnected from old sync room.");
                     }
 
-                    // --- NEW: Reset the UI before connecting to the new room ---
                     resetCheckboxesUI(); 
 
                     currentSyncId = newSyncId;
-                    localStorage.setItem('savedSyncId', currentSyncId); // Remember this ID
+                    localStorage.setItem('savedSyncId', currentSyncId);
                     syncStatus.textContent = `Connecting...`;
-                    console.log(`Attempting to connect to Sync ID: ${currentSyncId}`);
 
-                    // --- 1. Listen for remote changes ---
                     unsubscribeSync = onSnapshot(doc(db, "checkboxSync", currentSyncId), (doc) => {
-                        console.log("Firebase: Received remote snapshot.");
                         if (doc.exists()) {
                             const remoteData = doc.data();
-                            console.log("Firebase: Doc exists, pulling remote data.");
+                            isSyncing = true;
                             
-                            isSyncing = true; // Set flag to prevent save loop
-                            
-                            // Update local checkboxes from remote data
                             checkboxes.forEach(checkbox => {
                                 if (checkbox.id !== 'theme-toggle' && remoteData[checkbox.id] !== undefined) {
-                                    // Only update if different, to be efficient
                                     if (checkbox.checked !== remoteData[checkbox.id]) {
                                         checkbox.checked = remoteData[checkbox.id];
-                                        // Also update local storage to match
                                         localStorage.setItem(checkbox.id, remoteData[checkbox.id]);
                                     }
                                 }
                             });
                             
-                            isSyncing = false; // Release flag
+                            isSyncing = false;
                         } else {
-                            // Document doesn't exist, so push our current (now blank) state
-                            console.log("Firebase: No remote doc, pushing local state.");
                             pushFullLocalState();
                         }
                         syncStatus.textContent = `Connected`;
@@ -826,71 +782,51 @@
                         console.error("Sync error: ", error);
                         syncStatus.textContent = "Error connecting.";
                     });
-
-                    // (We no longer push state here, we wait for the listener)
                 }
 
-                // Pushes the state of *all* checkboxes to Firebase
                 function pushFullLocalState() {
                     if (!currentSyncId) return;
-
-                    console.log("Pushing full local state to Firebase...");
                     const localState = {};
                     checkboxes.forEach(checkbox => {
                         if (checkbox.id !== 'theme-toggle') {
                             localState[checkbox.id] = checkbox.checked;
                         }
                     });
-
-                    // Use setDoc with merge:true to non-destructively update
-                    // This will create the doc if it doesn't exist
                     setDoc(doc(db, "checkboxSync", currentSyncId), localState, { merge: true });
                 }
 
-
-                // --- Add Event Listeners ---
-
-                // Checkboxes
                 checkboxes.forEach(checkbox => {
                     if (checkbox.id !== 'theme-toggle') {
                         checkbox.addEventListener('change', saveCheckboxProgress);
                     }
                 });
 
-                // Theme Toggle
                 themeToggle.addEventListener('change', () => {
                     body.classList.toggle('light-mode');
                     saveTheme();
                 });
                 
-                // NEW: Sync Button
                 syncConnectBtn.addEventListener('click', connectToSync);
 
-                // --- NEW: Sync Collapse Toggle ---
                 if (syncHeader) {
                     syncHeader.addEventListener('click', () => {
                         syncControls.classList.toggle('collapsed');
                         const isCollapsed = syncControls.classList.contains('collapsed');
-                        // Save state
                         localStorage.setItem('syncCollapsed', isCollapsed);
                     });
                 }
 
-
-                // --- Initial Load ---
-                loadCheckboxProgress(); // Load from local storage first
+                loadCheckboxProgress();
                 loadTheme();
                 
-                // --- NEW: Load Collapse State ---
                 function loadSyncCollapseState() {
                     const isCollapsed = localStorage.getItem('syncCollapsed') === 'true';
                     if (isCollapsed) {
                         syncControls.classList.add('collapsed');
                     }
                 }
-                loadSyncCollapseState(); // Call the function
+                loadSyncCollapseState();
                 
-                // NEW: Auto-connect to sync if an ID is saved
                 const savedSyncId = localStorage.getItem('savedSyncId');
                 if (savedSyncId) {
                     syncIdInput.value = savedSyncId;
