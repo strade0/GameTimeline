@@ -17,44 +17,12 @@
         /* Set the Inter font as the default */
         body {
             font-family: 'Inter', sans-serif;
-            /* Fallback for the gradient background */
-            background-color: #111827; 
-        }
-
-        /* This custom class creates the "liquid glass" effect.
-          - background: A semi-transparent white for the "glass" color.
-          - backdrop-filter: Blurs whatever is behind the element.
-          - border: A very faint white border to catch the light.
-          - box-shadow: A soft, diffused shadow to create depth.
-        */
-        .glass-button {
-            /* Glass background color */
-            background: rgba(255, 255, 255, 0.05);
-            
-            /* The blur effect */
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px); /* For Safari */
-            
-            /* Subtle "glowing" border */
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            
-            /* The "nice shadow" for depth, Apple-style */
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), 0 6px 6px rgba(0, 0, 0, 0.23);
-            
-            /* Smooth transition for hover effects */
-            transition: all 0.3s ease;
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display-swap" rel="stylesheet">
-    
-    <style>
-        /* Set the Inter font as the default */
-        body {
-            font-family: 'Inter', sans-serif;
             /* Fallback for the background */
-            background-color: #f3f4f6; /* light gray, similar to timeline.html */
+            background-color: #111827; /* Dark Gray */
         }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-900">
+<body class="bg-gray-900 text-gray-100">
 
     <!-- 
       Main container
@@ -73,14 +41,23 @@
             
             <!-- Timeline Button -->
             <a href="timeline.html" 
-               class="block w-64 text-center py-8 rounded-xl text-2xl font-semibold bg-white text-gray-800 border border-gray-200 shadow-lg hover:shadow-xl hover:-translate-y-1 transform transition-all duration-300 ease-in-out">
+               class="block w-64 text-center py-8 rounded-xl text-2xl font-semibold bg-white text-gray-900 border border-gray-200 shadow-lg hover:shadow-xl hover:-translate-y-1 transform transition-all duration-300 ease-in-out">
                 Timeline
             </a>
             
             <!-- Progress Button -->
             <a href="checkbox.html" 
-               class="block w-64 text-center py-8 rounded-xl text-2xl font-semibold bg-white text-gray-800 border border-gray-200 shadow-lg hover:shadow-xl hover:-translate-y-1 transform transition-all duration-300 ease-in-out">
+               class="block w-64 text-center py-8 rounded-xl text-2xl font-semibold bg-white text-gray-900 border border-gray-200 shadow-lg hover:shadow-xl hover:-translate-y-1 transform transition-all duration-300 ease-in-out">
                 Progress
             </a>
 
+            <!-- Notes Button -->
+            <a href="notes.html" 
+               class="block w-64 text-center py-8 rounded-xl text-2xl font-semibold bg-white text-gray-900 border border-gray-200 shadow-lg hover:shadow-xl hover:-translate-y-1 transform transition-all duration-300 ease-in-out">
+                Notes
+            </a>
+
         </div>
+    </div>
+</body>
+</html>
