@@ -496,8 +496,8 @@ document.addEventListener('DOMContentLoaded', function() {
             tooltip.innerHTML = `${originalTooltip}<div class="countdown">${countdownText}</div>`;
 
             tooltip.style.display = 'block';
-            tooltip.style.left = (e.pageX + 15) + 'px';
-            tooltip.style.top = (e.pageY + 15) + 'px';
+            tooltip.style.left = (e.clientX + 15) + 'px';
+            tooltip.style.top = (e.clientY + 15) + 'px';
         });
 
         bar.addEventListener('mouseleave', function() {
