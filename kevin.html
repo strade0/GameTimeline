@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noimageindex">
+    <meta name="googlebot" content="noindex, nofollow">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <title>Kevin's Portfolio</title>
+    <style>
+        /* Base Reset */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #050000;
+            color: #f5f5f5;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            user-select: none; /* Prevent text selection while dragging */
+        }
+
+        /* --- LAVA LAMP BACKGROUND --- */
+        .lamp-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: linear-gradient(to bottom, #1a0005 0%, #2b0000 60%, #4a0000 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #lavaCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            filter: url('#goo');
+            opacity: 0.9;
+        }
+
+        .glass-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.6) 90%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        svg.filter-def {
+            position: absolute;
+            width: 0;
+            height: 0;
+        }
+
+        /* --- DRAGGABLE CARD STYLES --- */
+        .module-card {
+            position: absolute;
+            /* Center initially */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            
+            z-index: 20;
+            background: rgba(10, 5, 10, 0.6); 
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            border-radius: 24px;
+            padding: 50px 40px;
+            width: 90%;
+            max-width: 380px;
+            text-align: center;
+            cursor: grab; /* Indicates dragging is possible */
+            touch-action: none; /* Prevents scrolling on mobile while dragging */
+        }
+
+        .module-card:active {
+            cursor: grabbing;
+        }
+
+        h2 {
+            font-weight: 700;
+            font-size: 1.8em;
+            margin-top: 0;
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+            pointer-events: none; /* Prevent text selection interfering with drag */
+        }
+
+        p.subtitle {
+            margin: 0 0 35px 0;
+            font-size: 0.95em;
+            opacity: 0.7;
+            font-weight: 400;
+            pointer-events: none;
+        }
+
+        /* Link Buttons */
+        .link-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .social-link {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 16px 24px;
+            text-decoration: none;
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            font-weight: 600;
+            font-size: 1.05em;
+            transition: transform 0.2s ease, background 0.2s ease;
+            cursor: pointer;
+        }
+
+        .social-link:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* Specific Brand Hover Colors */
+        .social-link.sketchfab:hover {
+            border: 1px solid #1CAAD9;
+            box-shadow: 0 4px 15px rgba(28, 170, 217, 0.4);
+        }
+        
+        .social-link.artstation:hover {
+            border: 1px solid #13AFF0;
+            box-shadow: 0 4px 15px rgba(19, 175, 240, 0.4);
+        }
+
+        .icon {
+            width: 32px;
+            height: 32px;
+            margin-right: 15px;
+            object-fit: contain;
+            flex-shrink: 0;
+            display: block;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Lava Lamp Structure -->
+    <div class="lamp-container">
+        <div class="glass-overlay"></div>
+        <canvas id="lavaCanvas"></canvas>
+    </div>
+
+    <!-- SVG Filter -->
+    <svg class="filter-def" xmlns="http://www.w3.org/2000/svg" version="1.1">
+        <defs>
+            <filter id="goo">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur" />
+                <feColorMatrix in="blur" mode="matrix" values="
+                    1 0 0 0 0  
+                    0 1 0 0 0  
+                    0 0 1 0 0  
+                    0 0 0 18 -7" result="goo" />
+                <feComposite in="SourceGraphic" in2="goo" operator="atop"/>
+            </filter>
+        </defs>
+    </svg>
+
+    <!-- Draggable Module Card -->
+    <div id="draggableCard" class="module-card">
+        <h2>Kevin's Portfolio</h2>
+        <p class="subtitle">3D Artist & Digital Designer</p>
+        
+        <div class="link-list">
+            <a href="https://sketchfab.com/ItsKevin" target="_blank" class="social-link sketchfab">
+                <!-- Replace with actual URL -->
+                <img src="sketchfab.png" alt="Sketchfab Icon" class="icon">
+                Sketchfab
+            </a>
+
+            <a href="https://www.artstation.com/itskevin" target="_blank" class="social-link artstation">
+                <!-- Replace with actual URL -->
+                <img src="artstation.png" alt="ArtStation Icon" class="icon">
+                ArtStation
+            </a>
+        </div>
+    </div>
+
+    <!-- Drag Logic -->
+    <script>
+        const card = document.getElementById('draggableCard');
+        let isDragging = false;
+        let startX, startY, initialLeft, initialTop;
+
+        // Mouse Events
+        card.addEventListener('mousedown', startDrag);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', stopDrag);
+
+        // Touch Events (Mobile)
+        card.addEventListener('touchstart', startDrag, { passive: false });
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('touchend', stopDrag);
+
+        function startDrag(e) {
+            // Prevent dragging if clicking a link/button
+            if (e.target.closest('a')) return;
+
+            isDragging = true;
+            
+            // Get pointer position (touch or mouse)
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            // Get current absolute position
+            // We use getBoundingClientRect to calculate the exact pixel position
+            // because 'transform: translate(-50%, -50%)' makes simple offsetLeft unreliable for this logic
+            const rect = card.getBoundingClientRect();
+            
+            // Switch from CSS centering (transform) to absolute pixel positioning
+            // This prevents the card from "jumping" when we start moving it
+            card.style.transform = 'none';
+            card.style.left = rect.left + 'px';
+            card.style.top = rect.top + 'px';
+            
+            // Calculate offset from the top-left corner of the card
+            startX = clientX - rect.left;
+            startY = clientY - rect.top;
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+            e.preventDefault(); // Prevent scrolling on touch
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            // Update position
+            const x = clientX - startX;
+            const y = clientY - startY;
+
+            card.style.left = `${x}px`;
+            card.style.top = `${y}px`;
+        }
+
+        function stopDrag() {
+            isDragging = false;
+        }
+    </script>
+
+    <!-- Lava Lamp Logic -->
+    <script>
+        const canvas = document.getElementById('lavaCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let particles = [];
+        let lastTime = 0;
+
+        const config = {
+            particleCountFactor: 7000, 
+            minRadius: 30,
+            maxRadius: 80,
+            speedFactor: 0.6
+        };
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            initParticles();
+        }
+
+        window.addEventListener('resize', resize);
+
+        class Particle {
+            constructor() {
+                this.init(true);
+            }
+
+            init(randomY = false) {
+                const scale = Math.min(width, height) / 1000; 
+                this.radius = (Math.random() * (config.maxRadius - config.minRadius) + config.minRadius) * Math.max(0.6, scale);
+                this.x = Math.random() * width;
+                this.y = randomY ? Math.random() * height : height + this.radius + (Math.random() * 100);
+                this.state = Math.random() > 0.5 ? 1 : -1; 
+                this.vy = (Math.random() * 1 + 0.5) * -1;
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.angle = Math.random() * Math.PI * 2;
+            }
+
+            update(deltaTimeFactor) {
+                if (this.y < -this.radius && this.state === 1) {
+                    this.state = -1; 
+                    this.vy = 0;
+                }
+                
+                if (this.y > height + this.radius && this.state === -1) {
+                    this.state = 1;
+                    this.vy = 0;
+                    this.x = Math.random() * width;
+                }
+
+                const buoyancy = 0.008 * config.speedFactor * deltaTimeFactor;
+                
+                if (this.state === 1) {
+                    if (this.vy > -2 * config.speedFactor) this.vy -= buoyancy;
+                } else {
+                    if (this.vy < 2 * config.speedFactor) this.vy += buoyancy;
+                }
+
+                this.angle += 0.02 * deltaTimeFactor;
+                this.vx = Math.sin(this.angle) * 0.3;
+
+                this.x += this.vx * deltaTimeFactor;
+                this.y += this.vy * deltaTimeFactor;
+
+                if (this.x < -this.radius) this.x = width + this.radius;
+                if (this.x > width + this.radius) this.x = -this.radius;
+            }
+
+            draw() {
+                const normalizedY = Math.max(0, Math.min(1, this.y / height));
+                let h;
+                if(normalizedY > 0.5) {
+                    h = (normalizedY - 0.5) * 2 * 50; 
+                } else {
+                    h = 280 + (normalizedY * 2 * 80);
+                }
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `hsl(${h}, 100%, 50%)`;
+                ctx.fill();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            const area = width * height;
+            const count = Math.floor(area / config.particleCountFactor);
+            const safeCount = Math.max(5, Math.min(count, 30));
+            for (let i = 0; i < safeCount; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function animate(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+            let correctionFactor = deltaTime / (1000 / 60);
+            if (correctionFactor > 4) correctionFactor = 1; 
+
+            ctx.clearRect(0, 0, width, height);
+            
+            particles.forEach(p => {
+                p.update(correctionFactor);
+                p.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        resize();
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>
