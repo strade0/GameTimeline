@@ -3,9 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="robots" content="noindex, nofollow, noimageindex">
-    <meta name="googlebot" content="noindex, nofollow">
-    <link rel="icon" type="image/png" href="favicon.png">
     <title>Kevin's Portfolio</title>
     <style>
         /* Base Reset */
@@ -76,8 +73,12 @@
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
             border-radius: 24px;
             padding: 50px 40px;
-            width: 90%;
+            
+            /* UPDATED: Ensures margins on small screens */
+            width: calc(100% - 40px); 
             max-width: 380px;
+            box-sizing: border-box; /* Includes padding in width calculation */
+            
             text-align: center;
             cursor: grab; /* Indicates dragging is possible */
             touch-action: none; /* Prevents scrolling on mobile while dragging */
@@ -186,13 +187,13 @@
         <div class="link-list">
             <a href="https://sketchfab.com/ItsKevin" target="_blank" class="social-link sketchfab">
                 <!-- Replace with actual URL -->
-                <img src="Sketchfab.png" alt="Sketchfab Icon" class="icon">
+                <img src="YOUR_SKETCHFAB_ICON_URL" alt="Sketchfab Icon" class="icon">
                 Sketchfab
             </a>
 
             <a href="https://www.artstation.com/itskevin" target="_blank" class="social-link artstation">
                 <!-- Replace with actual URL -->
-                <img src="Artstation.png" alt="ArtStation Icon" class="icon">
+                <img src="YOUR_ARTSTATION_ICON_URL" alt="ArtStation Icon" class="icon">
                 ArtStation
             </a>
         </div>
@@ -376,5 +377,4 @@
         requestAnimationFrame(animate);
     </script>
 </body>
-
 </html>
