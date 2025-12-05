@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta name="robots" content="noindex, nofollow, noimageindex">
     <meta name="googlebot" content="noindex, nofollow">
@@ -7,6 +8,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="favicon.png">
     <title>Module Progress Tracker</title>
+    <!-- Load Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <style>
         /* Default is Dark Mode */
         body {
@@ -30,6 +33,45 @@
             color: #1a1a1a;
         }
 
+        /* Home Button Styling */
+        .home-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #f5f5f5;
+            z-index: 100;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .home-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Light Mode Home Button */
+        body.light-mode .home-btn {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            color: #1a1a1a;
+        }
+
+        body.light-mode .home-btn:hover {
+            background: rgba(255, 255, 255, 1);
+        }
+
         .container {
             display: flex;
             flex-wrap: wrap;
@@ -47,12 +89,12 @@
             border: 1px solid rgba(255, 255, 255, 0.15);
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
             border-radius: 16px;
-            
+
             padding: 25px;
             flex: 1;
             min-width: 400px;
             max-width: 600px;
-            
+
             max-height: 82vh;
             overflow-y: auto;
             transition: background 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
@@ -103,7 +145,7 @@
             cursor: pointer;
             transition: accent-color 0.3s ease;
         }
-        
+
         body.light-mode .week-item input[type="checkbox"] {
             accent-color: #000000;
         }
@@ -113,7 +155,7 @@
             flex-grow: 1;
             line-height: 1.4;
         }
-        
+
         .list-divider {
             font-size: 0.95em;
             font-weight: bold;
@@ -134,22 +176,25 @@
         .module-card::-webkit-scrollbar {
             width: 8px;
         }
+
         .module-card::-webkit-scrollbar-track {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 10px;
         }
+
         .module-card::-webkit-scrollbar-thumb {
             background: rgba(255, 255, 255, 0.3);
             border-radius: 10px;
         }
-        
+
         body.light-mode .module-card::-webkit-scrollbar-track {
             background: rgba(0, 0, 0, 0.05);
         }
+
         body.light-mode .module-card::-webkit-scrollbar-thumb {
             background: rgba(0, 0, 0, 0.3);
         }
-        
+
         /* Theme Toggle Switch */
         .theme-switch-wrapper {
             position: fixed;
@@ -159,17 +204,20 @@
             align-items: center;
             z-index: 100;
         }
+
         .theme-switch {
             position: relative;
             display: inline-block;
             width: 60px;
             height: 34px;
         }
+
         .theme-switch input {
             opacity: 0;
             width: 0;
             height: 0;
         }
+
         .slider {
             position: absolute;
             cursor: pointer;
@@ -181,6 +229,7 @@
             transition: .4s;
             border-radius: 34px;
         }
+
         .slider:before {
             position: absolute;
             content: "";
@@ -192,10 +241,12 @@
             transition: .4s;
             border-radius: 50%;
         }
-        input:checked + .slider {
+
+        input:checked+.slider {
             background-color: #ccc;
         }
-        input:checked + .slider:before {
+
+        input:checked+.slider:before {
             transform: translateX(26px);
             background-color: #333;
         }
@@ -216,13 +267,13 @@
             width: 200px;
             transition: background 0.3s ease, border 0.3s ease;
         }
-        
+
         body.light-mode .sync-controls {
             background: rgba(255, 255, 255, 0.4);
             border: 1px solid rgba(0, 0, 0, 0.1);
             box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
         }
-        
+
         .sync-header {
             display: flex;
             justify-content: space-between;
@@ -231,7 +282,7 @@
             font-weight: 600;
             user-select: none;
         }
-        
+
         .collapse-arrow {
             font-size: 1.1em;
             transition: transform 0.3s ease;
@@ -253,7 +304,7 @@
             opacity: 0;
             margin-top: 0;
         }
-        
+
         .sync-controls.collapsed .collapse-arrow {
             transform: rotate(-90deg);
         }
@@ -269,7 +320,7 @@
             width: 100%;
             box-sizing: border-box;
         }
-        
+
         .sync-controls button {
             padding: 8px 10px;
             border-radius: 8px;
@@ -280,31 +331,36 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        
+
         .sync-controls button:hover {
             opacity: 0.8;
         }
-        
+
         body.light-mode .sync-controls input[type="text"] {
             border-color: rgba(0, 0, 0, 0.2);
             background: rgba(0, 0, 0, 0.05);
             color: #1a1a1a;
         }
-        
+
         body.light-mode .sync-controls button {
             background: #000;
             color: #fff;
         }
-        
+
         #sync-status {
             font-size: 12px;
             text-align: center;
             opacity: 0.7;
         }
-
     </style>
 </head>
+
 <body>
+
+    <!-- Home Button -->
+    <a href="index.html" class="home-btn" title="Back to Home">
+        <i class="ph ph-house text-xl" style="font-size: 24px;"></i>
+    </a>
 
     <div class="theme-switch-wrapper">
         <label class="theme-switch" for="theme-toggle">
@@ -318,7 +374,7 @@
             <span>Sync Controls</span>
             <span class="collapse-arrow">▼</span>
         </div>
-        
+
         <div class="sync-content">
             <input type="text" id="sync-id" placeholder="Enter Sync ID">
             <button id="sync-connect">Connect</button>
@@ -331,7 +387,7 @@
             <h2>Module 14 - HCI</h2>
             <div class="week-list" data-module="HCI">
                 <div class="list-divider">Module 14 - Checklist</div>
-                
+
                 <div class="week-item">
                     <input type="checkbox" id="HCI-week1">
                     <label for="HCI-week1">Week 1 — Kick-off, Research Planning & Module Introduction</label>
@@ -408,7 +464,8 @@
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="HCI-weekFinalInstructions">
-                    <label for="HCI-weekFinalInstructions">Final Submission Instructions — Module 14 (HCI Log & Project)</label>
+                    <label for="HCI-weekFinalInstructions">Final Submission Instructions — Module 14 (HCI Log &
+                        Project)</label>
                 </div>
             </div>
         </div>
@@ -436,13 +493,15 @@
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module16-week5-6-Hostile">
-                    <label for="Module16-week5-6-Hostile">Week 5-6 - Hostile Creature — Silhouettes & Concept Development</label>
+                    <label for="Module16-week5-6-Hostile">Week 5-6 - Hostile Creature — Silhouettes & Concept
+                        Development</label>
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module16-week5-6-Companion">
-                    <label for="Module16-week5-6-Companion">Week 5-6 - Companion Creature — Silhouettes & Concept Development</label>
+                    <label for="Module16-week5-6-Companion">Week 5-6 - Companion Creature — Silhouettes & Concept
+                        Development</label>
                 </div>
-                
+
                 <div class="list-divider">Phase 2: Formative & Assets</div>
 
                 <div class="week-item">
@@ -451,9 +510,10 @@
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module16-week7-Env">
-                    <label for="Module16-week7-Env">Week 7 - Environment Prop — Silhouettes & Concept Development</label>
+                    <label for="Module16-week7-Env">Week 7 - Environment Prop — Silhouettes & Concept
+                        Development</label>
                 </div>
-                 <div class="week-item">
+                <div class="week-item">
                     <input type="checkbox" id="Module16-week7-Texture">
                     <label for="Module16-week7-Texture">Week 7 - Tools & Equipment — Texturing & Final Renders</label>
                 </div>
@@ -469,7 +529,7 @@
                     <input type="checkbox" id="Module16-week9-UV">
                     <label for="Module16-week9-UV">Week 9 - Tools & Equipment — UV Mapping</label>
                 </div>
-                 <div class="week-item">
+                <div class="week-item">
                     <input type="checkbox" id="Module16-week9-Env">
                     <label for="Module16-week9-Env">Week 9 - Environment Prop — 3D Modelling Part 2</label>
                 </div>
@@ -477,7 +537,7 @@
                     <input type="checkbox" id="Module16-week10-Companion">
                     <label for="Module16-week10-Companion">Week 10 - Companion Creature — 3D Modelling Part 1</label>
                 </div>
-                 <div class="week-item">
+                <div class="week-item">
                     <input type="checkbox" id="Module16-week10-EnvUV">
                     <label for="Module16-week10-EnvUV">Week 10 - Environment Prop — UV Mapping</label>
                 </div>
@@ -501,7 +561,7 @@
                     <input type="checkbox" id="Module16-week16">
                     <label for="Module16-week16">Week 16 - Basic Character — Texturing & Final Renders</label>
                 </div>
-                
+
                 <div class="list-divider">Phase 3: Creatures & Final</div>
 
                 <div class="week-item">
@@ -570,7 +630,8 @@
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module17-lec05">
-                    <label for="Module17-lec05">Lecture 05 - Inventory Layout And Inventory Widget (Intermediate)</label>
+                    <label for="Module17-lec05">Lecture 05 - Inventory Layout And Inventory Widget
+                        (Intermediate)</label>
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module17-lec06">
@@ -578,7 +639,8 @@
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module17-lec07">
-                    <label for="Module17-lec07">Lecture 07 - Linking the Inventory Component with our UI (Difficult)</label>
+                    <label for="Module17-lec07">Lecture 07 - Linking the Inventory Component with our UI
+                        (Difficult)</label>
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module17-lec08">
@@ -586,7 +648,8 @@
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module17-lec09">
-                    <label for="Module17-lec09">Lecture 09 - Setting up Platform Specific Input Button Icons (Beginner)</label>
+                    <label for="Module17-lec09">Lecture 09 - Setting up Platform Specific Input Button Icons
+                        (Beginner)</label>
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module17-lec10">
@@ -594,11 +657,13 @@
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module17-lec11">
-                    <label for="Module17-lec11">Lecture 11 - From Chop Logic to Notification System (Intermediate)</label>
+                    <label for="Module17-lec11">Lecture 11 - From Chop Logic to Notification System
+                        (Intermediate)</label>
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module17-lec12">
-                    <label for="Module17-lec12">Lecture 12 - From Destructible Trees to Harvesting System (Intermediate)</label>
+                    <label for="Module17-lec12">Lecture 12 - From Destructible Trees to Harvesting System
+                        (Intermediate)</label>
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module17-lec13">
@@ -614,7 +679,8 @@
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module17-lec16">
-                    <label for="Module17-lec16">Lecture 16 - Consumables, Levelling up, Skill Points (Intermediate)</label>
+                    <label for="Module17-lec16">Lecture 16 - Consumables, Levelling up, Skill Points
+                        (Intermediate)</label>
                 </div>
                 <div class="week-item">
                     <input type="checkbox" id="Module17-lec17">
@@ -656,7 +722,7 @@
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 
         document.addEventListener('DOMContentLoaded', async () => {
-            
+
             // Firebase Config 
             const firebaseConfig = {
                 apiKey: "AIzaSyA4oXzllt-5dk-TLG_wAhXggJ7scY-VwtM",
@@ -675,7 +741,7 @@
 
                 await signInAnonymously(auth);
                 console.log("Firebase Auth: Signed in anonymously.");
-            
+
                 let currentSyncId = null;
                 let isSyncing = false;
                 let unsubscribeSync = null;
@@ -683,7 +749,7 @@
                 const checkboxes = document.querySelectorAll('input[type="checkbox"]');
                 const themeToggle = document.getElementById('theme-toggle');
                 const body = document.body;
-                
+
                 const syncIdInput = document.getElementById('sync-id');
                 const syncConnectBtn = document.getElementById('sync-connect');
                 const syncStatus = document.getElementById('sync-status');
@@ -706,7 +772,7 @@
 
                 function saveCheckboxProgress(event) {
                     localStorage.setItem(event.target.id, event.target.checked);
-                    
+
                     if (currentSyncId && !isSyncing) {
                         setDoc(doc(db, "checkboxSync", currentSyncId), {
                             [event.target.id]: event.target.checked
@@ -732,7 +798,7 @@
                         localStorage.setItem('theme', 'dark');
                     }
                 }
-                
+
                 function resetCheckboxesUI() {
                     checkboxes.forEach(checkbox => {
                         if (checkbox.id !== 'theme-toggle') {
@@ -740,7 +806,7 @@
                         }
                     });
                 }
-                
+
                 function connectToSync() {
                     const newSyncId = syncIdInput.value.trim();
                     if (!newSyncId) {
@@ -756,7 +822,7 @@
                         unsubscribeSync();
                     }
 
-                    resetCheckboxesUI(); 
+                    resetCheckboxesUI();
 
                     currentSyncId = newSyncId;
                     localStorage.setItem('savedSyncId', currentSyncId);
@@ -766,7 +832,7 @@
                         if (doc.exists()) {
                             const remoteData = doc.data();
                             isSyncing = true;
-                            
+
                             checkboxes.forEach(checkbox => {
                                 if (checkbox.id !== 'theme-toggle' && remoteData[checkbox.id] !== undefined) {
                                     if (checkbox.checked !== remoteData[checkbox.id]) {
@@ -775,7 +841,7 @@
                                     }
                                 }
                             });
-                            
+
                             isSyncing = false;
                         } else {
                             pushFullLocalState();
@@ -808,7 +874,7 @@
                     body.classList.toggle('light-mode');
                     saveTheme();
                 });
-                
+
                 syncConnectBtn.addEventListener('click', connectToSync);
 
                 if (syncHeader) {
@@ -821,7 +887,7 @@
 
                 loadCheckboxProgress();
                 loadTheme();
-                
+
                 function loadSyncCollapseState() {
                     const isCollapsed = localStorage.getItem('syncCollapsed') === 'true';
                     if (isCollapsed) {
@@ -829,13 +895,13 @@
                     }
                 }
                 loadSyncCollapseState();
-                
+
                 const savedSyncId = localStorage.getItem('savedSyncId');
                 if (savedSyncId) {
                     syncIdInput.value = savedSyncId;
                     connectToSync();
                 }
-            
+
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
                 if (syncStatus) {
@@ -846,6 +912,5 @@
         });
     </script>
 </body>
+
 </html>
-
-
