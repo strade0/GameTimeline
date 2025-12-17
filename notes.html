@@ -172,6 +172,26 @@
             padding-top: 5px;
         }
 
+        /* Unsaved Draft Card - Warning Yellow Style */
+        .note-card.draft-card {
+            background: rgba(255, 193, 7, 0.15);
+            border: 1px solid rgba(255, 193, 7, 0.4);
+        }
+
+        .note-card.draft-card:hover {
+            background: rgba(255, 193, 7, 0.25);
+            transform: translateY(-3px);
+        }
+
+        body.light-mode .note-card.draft-card {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid rgba(255, 193, 7, 0.5);
+        }
+
+        body.light-mode .note-card.draft-card:hover {
+            background: rgba(255, 193, 7, 0.35);
+        }
+
         /* --- Add Note Button --- */
         .add-btn-wrapper {
             display: flex;
@@ -666,10 +686,27 @@
         function renderNotes(notes) {
             notesList.innerHTML = '';
 
+            // Check for unsaved new note draft and render it first
+            const newDraft = getNewNoteDraft();
+            if (newDraft && (newDraft.title || newDraft.content)) {
+                const draftCard = document.createElement('div');
+                draftCard.className = 'note-card draft-card';
+                const draftDate = new Date(newDraft.savedAt).toLocaleDateString() + ' ' + new Date(newDraft.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                draftCard.innerHTML = `
+                    <h3>Unsaved Note</h3>
+                    <p>Open to continue or delete the note.</p>
+                    <div class="date">${draftDate}</div>
+                `;
+
+                draftCard.addEventListener('click', () => openDraftEditor(newDraft));
+                notesList.appendChild(draftCard);
+            }
+
             // Sort by updated time (newest first)
             notes.sort((a, b) => b.updatedAt - a.updatedAt);
 
-            if (notes.length === 0) {
+            if (notes.length === 0 && !newDraft) {
                 notesList.innerHTML = '<p class="loading-msg">No notes found for this ID.</p>';
                 return;
             }
@@ -689,6 +726,21 @@
                 card.addEventListener('click', () => openEditor(note.id, note));
                 notesList.appendChild(card);
             });
+        }
+
+        // --- Open Draft Editor (for unsaved new notes) ---
+        function openDraftEditor(draft) {
+            isNewNote = true;
+            currentNoteId = 'note_' + Date.now();
+            editorOverlay.classList.add('active');
+
+            deleteBtn.textContent = 'Delete';
+            titleInput.value = draft.title || '';
+            contentInput.value = draft.content || '';
+            deleteBtn.style.display = 'inline-block'; // Show delete so user can discard draft
+            titleInput.focus();
+
+            startAutoSave();
         }
 
         // --- Editor Logic ---
@@ -719,27 +771,11 @@
                 }
                 deleteBtn.style.display = 'inline-block';
             } else {
-                // New Mode
+                // New Mode - start fresh (drafts are now shown as cards)
                 isNewNote = true;
-                // Generate a new ID for the new note based on timestamp
                 currentNoteId = 'note_' + Date.now();
-
-                // Check for existing draft for NEW notes using consistent key
-                const newDraft = getNewNoteDraft();
-                if (newDraft && (newDraft.title || newDraft.content)) {
-                    const useDraft = confirm('An unsaved new note was found. Would you like to restore it?');
-                    if (useDraft) {
-                        titleInput.value = newDraft.title || '';
-                        contentInput.value = newDraft.content || '';
-                    } else {
-                        titleInput.value = '';
-                        contentInput.value = '';
-                        clearNewNoteDraft();
-                    }
-                } else {
-                    titleInput.value = '';
-                    contentInput.value = '';
-                }
+                titleInput.value = '';
+                contentInput.value = '';
                 deleteBtn.style.display = 'none';
                 titleInput.focus();
             }
