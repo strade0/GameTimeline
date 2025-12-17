@@ -584,6 +584,8 @@
         let currentNoteId = null; // ID of note currently being edited
         let autoSaveInterval = null; // For auto-saving drafts
         const DRAFT_KEY = 'notes_draft'; // localStorage key for drafts
+        const NEW_DRAFT_KEY = 'notes_new_draft'; // localStorage key for unsaved new notes
+        let isNewNote = false; // Track if we're editing a new note
 
         // --- DOM Elements ---
         const notesList = document.getElementById('notesList');
@@ -699,6 +701,7 @@
 
             if (id && noteData) {
                 // Edit Mode - check for existing draft first
+                isNewNote = false;
                 const draft = getDraft(id);
                 if (draft) {
                     const useDraft = confirm('A draft was found for this note. Would you like to restore it?');
@@ -717,14 +720,22 @@
                 deleteBtn.style.display = 'inline-block';
             } else {
                 // New Mode
+                isNewNote = true;
                 // Generate a new ID for the new note based on timestamp
                 currentNoteId = 'note_' + Date.now();
 
-                // Check for existing draft for new notes
-                const draft = getDraft(currentNoteId);
-                if (draft) {
-                    titleInput.value = draft.title || '';
-                    contentInput.value = draft.content || '';
+                // Check for existing draft for NEW notes using consistent key
+                const newDraft = getNewNoteDraft();
+                if (newDraft && (newDraft.title || newDraft.content)) {
+                    const useDraft = confirm('An unsaved new note was found. Would you like to restore it?');
+                    if (useDraft) {
+                        titleInput.value = newDraft.title || '';
+                        contentInput.value = newDraft.content || '';
+                    } else {
+                        titleInput.value = '';
+                        contentInput.value = '';
+                        clearNewNoteDraft();
+                    }
                 } else {
                     titleInput.value = '';
                     contentInput.value = '';
@@ -747,16 +758,52 @@
             }
         }
 
-        function saveDraft() {
-            if (!currentNoteId) return;
+        // --- New Note Draft Functions ---
+        function getNewNoteDraft() {
             try {
-                const drafts = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}');
-                drafts[currentNoteId] = {
+                const draft = localStorage.getItem(NEW_DRAFT_KEY);
+                return draft ? JSON.parse(draft) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function saveNewNoteDraft() {
+            try {
+                localStorage.setItem(NEW_DRAFT_KEY, JSON.stringify({
                     title: titleInput.value,
                     content: contentInput.value,
                     savedAt: Date.now()
-                };
-                localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
+                }));
+            } catch (e) {
+                console.error('Failed to save new note draft:', e);
+            }
+        }
+
+        function clearNewNoteDraft() {
+            try {
+                localStorage.removeItem(NEW_DRAFT_KEY);
+            } catch (e) {
+                console.error('Failed to clear new note draft:', e);
+            }
+        }
+
+        function saveDraft() {
+            if (!currentNoteId) return;
+            try {
+                if (isNewNote) {
+                    // Save new notes to special key
+                    saveNewNoteDraft();
+                } else {
+                    // Save existing notes to keyed storage
+                    const drafts = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}');
+                    drafts[currentNoteId] = {
+                        title: titleInput.value,
+                        content: contentInput.value,
+                        savedAt: Date.now()
+                    };
+                    localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
+                }
             } catch (e) {
                 console.error('Failed to save draft:', e);
             }
@@ -764,9 +811,13 @@
 
         function clearDraft(noteId) {
             try {
-                const drafts = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}');
-                delete drafts[noteId];
-                localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
+                if (isNewNote) {
+                    clearNewNoteDraft();
+                } else {
+                    const drafts = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}');
+                    delete drafts[noteId];
+                    localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
+                }
             } catch (e) {
                 console.error('Failed to clear draft:', e);
             }
@@ -794,6 +845,7 @@
             }
             editorOverlay.classList.remove('active');
             currentNoteId = null;
+            isNewNote = false;
         };
 
         // --- Save to Firebase (Manually triggered) ---
@@ -834,6 +886,7 @@
 
                 editorOverlay.classList.remove('active');
                 currentNoteId = null;
+                isNewNote = false;
             } catch (e) {
                 console.error("Save failed", e);
                 alert("Failed to save note. Check connection.");
@@ -887,6 +940,13 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && editorOverlay.classList.contains('active')) {
                 closeEditor();
+            }
+        });
+
+        // --- Save draft immediately before page closes (handles Alt+F4, browser close, etc.) ---
+        window.addEventListener('beforeunload', () => {
+            if (currentNoteId && editorOverlay.classList.contains('active')) {
+                saveDraft(); // Force save on close
             }
         });
 
