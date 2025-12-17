@@ -160,6 +160,7 @@
             overflow: hidden;
             display: -webkit-box;
             -webkit-line-clamp: 4;
+            line-clamp: 4;
             -webkit-box-orient: vertical;
         }
 
@@ -581,6 +582,8 @@
         let currentSyncId = null;
         let unsubscribe = null; // To stop listening to old rooms
         let currentNoteId = null; // ID of note currently being edited
+        let autoSaveInterval = null; // For auto-saving drafts
+        const DRAFT_KEY = 'notes_draft'; // localStorage key for drafts
 
         // --- DOM Elements ---
         const notesList = document.getElementById('notesList');
@@ -691,23 +694,104 @@
             currentNoteId = id;
             editorOverlay.classList.add('active');
 
+            // Reset delete button text (fix for Issue 1)
+            deleteBtn.textContent = 'Delete';
+
             if (id && noteData) {
-                // Edit Mode
-                titleInput.value = noteData.title || "";
-                contentInput.value = noteData.content || "";
+                // Edit Mode - check for existing draft first
+                const draft = getDraft(id);
+                if (draft) {
+                    const useDraft = confirm('A draft was found for this note. Would you like to restore it?');
+                    if (useDraft) {
+                        titleInput.value = draft.title || '';
+                        contentInput.value = draft.content || '';
+                    } else {
+                        titleInput.value = noteData.title || '';
+                        contentInput.value = noteData.content || '';
+                        clearDraft(id);
+                    }
+                } else {
+                    titleInput.value = noteData.title || '';
+                    contentInput.value = noteData.content || '';
+                }
                 deleteBtn.style.display = 'inline-block';
             } else {
                 // New Mode
-                titleInput.value = '';
-                contentInput.value = '';
-                deleteBtn.style.display = 'none';
                 // Generate a new ID for the new note based on timestamp
                 currentNoteId = 'note_' + Date.now();
+
+                // Check for existing draft for new notes
+                const draft = getDraft(currentNoteId);
+                if (draft) {
+                    titleInput.value = draft.title || '';
+                    contentInput.value = draft.content || '';
+                } else {
+                    titleInput.value = '';
+                    contentInput.value = '';
+                }
+                deleteBtn.style.display = 'none';
                 titleInput.focus();
             }
+
+            // Start auto-save interval
+            startAutoSave();
         };
 
+        // --- Auto-Save Functions ---
+        function getDraft(noteId) {
+            try {
+                const drafts = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}');
+                return drafts[noteId] || null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function saveDraft() {
+            if (!currentNoteId) return;
+            try {
+                const drafts = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}');
+                drafts[currentNoteId] = {
+                    title: titleInput.value,
+                    content: contentInput.value,
+                    savedAt: Date.now()
+                };
+                localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
+            } catch (e) {
+                console.error('Failed to save draft:', e);
+            }
+        }
+
+        function clearDraft(noteId) {
+            try {
+                const drafts = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}');
+                delete drafts[noteId];
+                localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
+            } catch (e) {
+                console.error('Failed to clear draft:', e);
+            }
+        }
+
+        function startAutoSave() {
+            // Clear any existing interval
+            if (autoSaveInterval) clearInterval(autoSaveInterval);
+            // Save draft every 2 seconds while editing
+            autoSaveInterval = setInterval(saveDraft, 2000);
+        }
+
+        function stopAutoSave() {
+            if (autoSaveInterval) {
+                clearInterval(autoSaveInterval);
+                autoSaveInterval = null;
+            }
+        }
+
         window.closeEditor = function () {
+            stopAutoSave();
+            // Clear draft when closing (user chose not to save)
+            if (currentNoteId) {
+                clearDraft(currentNoteId);
+            }
             editorOverlay.classList.remove('active');
             currentNoteId = null;
         };
@@ -744,7 +828,12 @@
                 // setDoc with merge: true acts as "Create or Update"
                 await setDoc(noteRef, noteData, { merge: true });
 
-                closeEditor();
+                // Clear the draft after successful save
+                clearDraft(currentNoteId);
+                stopAutoSave();
+
+                editorOverlay.classList.remove('active');
+                currentNoteId = null;
             } catch (e) {
                 console.error("Save failed", e);
                 alert("Failed to save note. Check connection.");
