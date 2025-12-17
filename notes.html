@@ -560,7 +560,7 @@
             <p class="loading-msg">Please connect to a Sync ID to view notes.</p>
         </div>
         <div class="add-btn-wrapper">
-            <button class="add-note-btn" id="btnAddNote" onclick="openEditor()" disabled>+ Add New Note</button>
+            <button class="add-note-btn" id="btnAddNote" disabled>+ Add New Note</button>
         </div>
     </div>
 
@@ -606,6 +606,8 @@
         const DRAFT_KEY = 'notes_draft'; // localStorage key for drafts
         const NEW_DRAFT_KEY = 'notes_new_draft'; // localStorage key for unsaved new notes
         let isNewNote = false; // Track if we're editing a new note
+        let originalTitle = ''; // Track original title for unsaved changes detection
+        let originalContent = ''; // Track original content for unsaved changes detection
 
         // --- DOM Elements ---
         const notesList = document.getElementById('notesList');
@@ -675,6 +677,7 @@
                 renderNotes(notesData);
                 syncStatus.textContent = "Connected";
                 addBtn.disabled = false;
+                updateAddButtonText(); // Update button based on draft state
             }, (error) => {
                 console.error("Sync Error:", error);
                 syncStatus.textContent = "Connection Failed";
@@ -737,6 +740,11 @@
             deleteBtn.textContent = 'Delete';
             titleInput.value = draft.title || '';
             contentInput.value = draft.content || '';
+
+            // Track original values for unsaved changes detection
+            originalTitle = titleInput.value;
+            originalContent = contentInput.value;
+
             deleteBtn.style.display = 'inline-block'; // Show delete so user can discard draft
             titleInput.focus();
 
@@ -779,6 +787,10 @@
                 deleteBtn.style.display = 'none';
                 titleInput.focus();
             }
+
+            // Track original values for unsaved changes detection
+            originalTitle = titleInput.value;
+            originalContent = contentInput.value;
 
             // Start auto-save interval
             startAutoSave();
@@ -873,7 +885,18 @@
             }
         }
 
+        // Check if there are unsaved changes
+        function hasUnsavedChanges() {
+            return titleInput.value !== originalTitle || contentInput.value !== originalContent;
+        }
+
         window.closeEditor = function () {
+            // Check for unsaved changes before closing
+            if (hasUnsavedChanges()) {
+                const confirmClose = confirm('You have unsaved changes. Are you sure you want to close without saving?');
+                if (!confirmClose) return; // User cancelled, don't close
+            }
+
             stopAutoSave();
             // Clear draft when closing (user chose not to save)
             if (currentNoteId) {
@@ -882,6 +905,9 @@
             editorOverlay.classList.remove('active');
             currentNoteId = null;
             isNewNote = false;
+
+            // Update button text based on remaining drafts
+            updateAddButtonText();
         };
 
         // --- Save to Firebase (Manually triggered) ---
@@ -923,6 +949,9 @@
                 editorOverlay.classList.remove('active');
                 currentNoteId = null;
                 isNewNote = false;
+
+                // Update button text since draft was cleared
+                updateAddButtonText();
             } catch (e) {
                 console.error("Save failed", e);
                 alert("Failed to save note. Check connection.");
@@ -963,6 +992,29 @@
         }
 
         // --- Event Listeners ---
+
+        // Update add button text based on draft state
+        function updateAddButtonText() {
+            const newDraft = getNewNoteDraft();
+            if (newDraft && (newDraft.title || newDraft.content)) {
+                addBtn.textContent = 'Continue Editing';
+            } else {
+                addBtn.textContent = '+ Add New Note';
+            }
+        }
+
+        // Add button click handler
+        addBtn.addEventListener('click', () => {
+            const newDraft = getNewNoteDraft();
+            if (newDraft && (newDraft.title || newDraft.content)) {
+                // Draft exists - open the draft editor
+                openDraftEditor(newDraft);
+            } else {
+                // No draft - create new note
+                openEditor();
+            }
+        });
+
         syncConnectBtn.addEventListener('click', connectToSync);
 
         if (syncHeader) {
