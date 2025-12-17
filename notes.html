@@ -698,7 +698,7 @@
 
                 draftCard.innerHTML = `
                     <h3>Unsaved Note</h3>
-                    <p>Open to continue or delete the note.</p>
+                    <p>Select to resume editing or remove the note..</p>
                     <div class="date">${draftDate}</div>
                 `;
 
@@ -898,8 +898,9 @@
             }
 
             stopAutoSave();
-            // Clear draft when closing (user chose not to save)
-            if (currentNoteId) {
+            // Only clear drafts for EXISTING notes when closing
+            // For new notes, keep the draft so user can continue editing later
+            if (currentNoteId && !isNewNote) {
                 clearDraft(currentNoteId);
             }
             editorOverlay.classList.remove('active');
