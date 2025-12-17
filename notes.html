@@ -939,19 +939,20 @@
                     updatedAt: Date.now()
                 };
 
+                // Clear the draft BEFORE saving - prevents race condition with onSnapshot
+                // (onSnapshot fires when setDoc completes and would re-render the draft card
+                // before we had a chance to clear it)
+                clearDraft(currentNoteId);
+                updateAddButtonText();
+
                 // setDoc with merge: true acts as "Create or Update"
                 await setDoc(noteRef, noteData, { merge: true });
 
-                // Clear the draft after successful save
-                clearDraft(currentNoteId);
                 stopAutoSave();
 
                 editorOverlay.classList.remove('active');
                 currentNoteId = null;
                 isNewNote = false;
-
-                // Update button text since draft was cleared
-                updateAddButtonText();
             } catch (e) {
                 console.error("Save failed", e);
                 alert("Failed to save note. Check connection.");
