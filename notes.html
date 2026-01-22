@@ -522,6 +522,83 @@
             padding: 20px;
             opacity: 0.6;
         }
+
+        /* --- Hide Button on Card --- */
+        .note-card .hide-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .note-card .hide-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        body.light-mode .note-card .hide-btn {
+            color: rgba(0, 0, 0, 0.3);
+        }
+
+        body.light-mode .note-card .hide-btn:hover {
+            color: #000;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        /* --- Show/Hide Toggle Button (Inside Container) --- */
+        .show-hidden-toggle {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #f5f5f5;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85em;
+            transition: all 0.3s ease;
+            z-index: 10;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .show-hidden-toggle:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        body.light-mode .show-hidden-toggle {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            color: #1a1a1a;
+        }
+
+        body.light-mode .show-hidden-toggle:hover {
+            background: rgba(255, 255, 255, 1);
+        }
+
+        /* Visual cue for hidden notes when shown */
+        .note-card.is-hidden {
+            opacity: 0.6;
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+        }
+
+        body.light-mode .note-card.is-hidden {
+            border: 1px dashed rgba(0, 0, 0, 0.2);
+        }
     </style>
 </head>
 
@@ -562,6 +639,9 @@
         <div class="add-btn-wrapper">
             <button class="add-note-btn" id="btnAddNote" disabled>+ Add New Note</button>
         </div>
+
+        <!-- Show/Hide Hidden Toggle -->
+        <button id="toggleHiddenBtn" class="show-hidden-toggle">Show Hidden Notes</button>
     </div>
 
     <!-- Editor Modal (Hidden by default) -->
@@ -608,6 +688,8 @@
         let isNewNote = false; // Track if we're editing a new note
         let originalTitle = ''; // Track original title for unsaved changes detection
         let originalContent = ''; // Track original content for unsaved changes detection
+        let allNotesData = []; // Store local copy of notes for filtering
+        let showHiddenMode = false; // State to toggle hidden notes visibility
 
         // --- DOM Elements ---
         const notesList = document.getElementById('notesList');
@@ -624,6 +706,7 @@
         const syncControls = document.querySelector('.sync-controls');
         const syncHeader = document.getElementById('sync-header');
         const themeToggle = document.getElementById('theme-toggle');
+        const toggleHiddenBtn = document.getElementById('toggleHiddenBtn');
 
         // --- Init Firebase ---
         async function init() {
@@ -674,7 +757,13 @@
                 snapshot.forEach((doc) => {
                     notesData.push({ id: doc.id, ...doc.data() });
                 });
-                renderNotes(notesData);
+
+                // Sort by date descending
+                notesData.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+                allNotesData = notesData; // Update global store
+                renderNotes(); // Render with current filter
+
                 syncStatus.textContent = "Connected";
                 addBtn.disabled = false;
                 updateAddButtonText(); // Update button based on draft state
@@ -686,10 +775,18 @@
         };
 
         // --- Render Logic ---
-        function renderNotes(notes) {
+        function renderNotes() {
             notesList.innerHTML = '';
 
+            // Filter notes based on showHiddenMode
+            const notesToRender = allNotesData.filter(note => {
+                if (showHiddenMode) return true; // Show all (hidden ones will be styled)
+                return !note.hidden; // Only show non-hidden
+            });
+
             // Check for unsaved new note draft and render it first
+            // (Only render new drafts if NOT in show hidden mode, to avoid clutter? 
+            // Or always? Let's keep it always for now, but usually drafts aren't "hidden" yet)
             const newDraft = getNewNoteDraft();
             if (newDraft && (newDraft.title || newDraft.content)) {
                 const draftCard = document.createElement('div');
@@ -706,29 +803,73 @@
                 notesList.appendChild(draftCard);
             }
 
-            // Sort by updated time (newest first)
-            notes.sort((a, b) => b.updatedAt - a.updatedAt);
-
-            if (notes.length === 0 && !newDraft) {
-                notesList.innerHTML = '<p class="loading-msg">No notes found for this ID.</p>';
+            if (notesToRender.length === 0 && !newDraft) {
+                if (showHiddenMode) {
+                    notesList.innerHTML = '<p class="loading-msg">No hidden notes found.</p>';
+                } else {
+                    notesList.innerHTML = '<p class="loading-msg">No notes found. Create one!</p>';
+                }
                 return;
             }
 
-            notes.forEach(note => {
+            notesToRender.forEach(note => {
                 const card = document.createElement('div');
                 card.className = 'note-card';
-                const date = new Date(note.updatedAt).toLocaleDateString() + ' ' + new Date(note.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                if (note.hidden) card.classList.add('is-hidden');
+
+                const dateVal = note.updatedAt ? new Date(note.updatedAt) : new Date();
+                const dateStr = dateVal.toLocaleDateString() + ' ' + dateVal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                // Decide icon based on state
+                // If note is hidden, show eye-slash (to indicate "unhide" or just status)
+                // If note is visible, show eye (to hide)
+                // Actually, commonly: Eye = visible (click to hide), Eye Slash = hidden (click to show)
+                // But since we are toggling, let's just use the Eye Slash for "Hide this" and Eye for "Show this" logic?
+                // Standard: 
+                // Visible note -> Click "Eye Slash" (Hide) or "X" 
+                // Hidden note -> Click "Eye" (Show)
+
+                // Let's go with:
+                // If NOT hidden: Icon is Eye (tooltip: Hide)
+                // If hidden: Icon is EyeSlash (tooltip: Unhide)
+                // User asked: "add an eye... which would hide those notes"
+
+                const iconClass = note.hidden ? 'ph-eye-slash' : 'ph-eye';
+                const iconTitle = note.hidden ? 'Unhide Note' : 'Hide Note';
 
                 card.innerHTML = `
+                    <button class="hide-btn" title="${iconTitle}">
+                        <i class="ph ${iconClass}" style="font-size: 18px;"></i>
+                    </button>
                     <h3>${escapeHtml(note.title || 'Untitled')}</h3>
                     <p>${escapeHtml(note.content || '')}</p>
-                    <div class="date">${date}</div>
+                    <div class="date">${dateStr}</div>
                 `;
 
-                // Pass the ID to the open function
+                // Hide/Unhide Action
+                const hideBtn = card.querySelector('.hide-btn');
+                hideBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent opening editor
+                    toggleNoteHiddenStatus(note.id, note.hidden);
+                });
+
+                // Open Editor Action
                 card.addEventListener('click', () => openEditor(note.id, note));
                 notesList.appendChild(card);
             });
+        }
+
+        // --- Toggle Hidden Status ---
+        async function toggleNoteHiddenStatus(noteId, currentStatus) {
+            if (!currentSyncId) return;
+            try {
+                const noteRef = doc(db, "note_rooms", currentSyncId, "notes", noteId);
+                await setDoc(noteRef, { hidden: !currentStatus }, { merge: true });
+                // No need to manually re-render, onSnapshot will fire
+            } catch (e) {
+                console.error("Failed to toggle hidden status:", e);
+                alert("Error updating note status.");
+            }
         }
 
         // --- Open Draft Editor (for unsaved new notes) ---
@@ -1025,6 +1166,18 @@
                 localStorage.setItem('syncCollapsed', syncControls.classList.contains('collapsed'));
             });
         }
+
+        // Toggle Hidden Mode
+        toggleHiddenBtn.addEventListener('click', () => {
+            showHiddenMode = !showHiddenMode;
+            if (showHiddenMode) {
+                toggleHiddenBtn.textContent = 'Hide Hidden Notes';
+                toggleHiddenBtn.style.opacity = '1';
+            } else {
+                toggleHiddenBtn.textContent = 'Show Hidden Notes';
+            }
+            renderNotes();
+        });
 
         // Close on Escape
         document.addEventListener('keydown', (e) => {
