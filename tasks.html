@@ -8,7 +8,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#232323">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
@@ -1394,16 +1393,9 @@
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
         import {
-            getFirestore, doc, setDoc, collection, getDocs, deleteDoc, writeBatch, onSnapshot
+            getFirestore, doc, setDoc, collection, getDocs, deleteDoc, writeBatch
         } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
-
-        // --- Global Error Handler (Temporary for Debugging) ---
-        window.onerror = function (msg, url, line, col, error) {
-            alert("Error: " + msg + "\nLine: " + line + "\nCol: " + col);
-            // Hide spinner so user can hopefully at least see settings
-            document.getElementById('loadingState').style.display = 'none';
-        };
 
         // --- Firebase Config ---
         const firebaseConfig = {
@@ -1430,7 +1422,6 @@
         let tasksData = [];
         let editingTaskId = null;
         let deferredPrompt = null;
-        let unsubscribe = null;
         // Date picker state
         let datePickerMonth = new Date().getMonth();
         let datePickerYear = new Date().getFullYear();
@@ -1496,23 +1487,8 @@
         async function init() {
             loadTheme();
             loadLocalData();
-
-            try {
-                renderTasks();
-            } catch (e) {
-                console.error("Render error:", e);
-                alert("Render Error: " + e.message);
-            }
-
-            try {
-                setupEventListeners();
-            } catch (e) {
-                console.error("Setup Listeners error:", e);
-                alert("Setup Error: " + e.message);
-            }
-
-            // Always hide spinner
-            if (elements.loadingState) elements.loadingState.style.display = 'none';
+            renderTasks();
+            setupEventListeners();
 
             // Initialize Firebase
             try {
@@ -1526,7 +1502,16 @@
                 const savedSyncId = localStorage.getItem(STORAGE_KEYS.SYNC_ID);
                 if (savedSyncId) {
                     elements.syncIdInput.value = savedSyncId;
-                    connectSync();
+                    currentSyncId = savedSyncId;
+
+                    // Check if we need to sync (12 hour interval or first load)
+                    const lastSync = parseInt(localStorage.getItem(STORAGE_KEYS.LAST_SYNC) || '0');
+                    const now = Date.now();
+                    if (now - lastSync > SYNC_INTERVAL) {
+                        await syncWithFirebase();
+                    } else {
+                        updateSyncIndicator('cached');
+                    }
                 }
             } catch (err) {
                 console.error("Firebase init error:", err);
@@ -1549,16 +1534,6 @@
             document.body.classList.toggle('light-mode');
             const isLight = document.body.classList.contains('light-mode');
             localStorage.setItem(STORAGE_KEYS.THEME, isLight ? 'light' : 'dark');
-        }
-
-        function openSettings() {
-            elements.settingsPanel.classList.add('active');
-            elements.settingsBackdrop.classList.add('active');
-        }
-
-        function closeSettings() {
-            elements.settingsPanel.classList.remove('active');
-            elements.settingsBackdrop.classList.remove('active');
         }
 
         // --- Local Data ---
@@ -1624,31 +1599,57 @@
             return 'Over a day ago';
         }
 
-        async function saveTaskToFirebase(task) {
-            if (!db || !currentSyncId) return;
-            try {
-                const taskRef = doc(db, "note_rooms", currentSyncId, "tasks", task.id);
-                await setDoc(taskRef, task);
-            } catch (err) {
-                console.error("Error saving task:", err);
-            }
-        }
-
-        async function deleteTaskFromFirebase(taskId) {
-            if (!db || !currentSyncId) return;
-            try {
-                const taskRef = doc(db, "note_rooms", currentSyncId, "tasks", taskId);
-                await deleteDoc(taskRef);
-            } catch (err) {
-                console.error("Error deleting task:", err);
-            }
-        }
-
-        // Deprecated manual sync but kept for initial load check if needed (or we can just remove)
         async function syncWithFirebase() {
-            // In real-time mode, we just ensure we are connected
-            if (currentSyncId && !unsubscribe) {
-                connectSync();
+            if (!db || !currentSyncId) {
+                updateSyncIndicator('offline');
+                return;
+            }
+
+            updateSyncIndicator('syncing');
+
+            try {
+                // Fetch from Firebase
+                const tasksRef = collection(db, "task_rooms", currentSyncId, "tasks");
+                const snapshot = await getDocs(tasksRef);
+
+                const remoteTasks = [];
+                snapshot.forEach((doc) => {
+                    remoteTasks.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Merge strategy: Use the most recently updated version
+                const mergedTasks = mergeTasks(tasksData, remoteTasks);
+                tasksData = mergedTasks;
+
+                // Push merged data back to Firebase
+                const batch = writeBatch(db);
+
+                // Delete all existing and rewrite
+                for (const task of remoteTasks) {
+                    const taskRef = doc(db, "task_rooms", currentSyncId, "tasks", task.id);
+                    batch.delete(taskRef);
+                }
+
+                for (const task of tasksData) {
+                    const taskRef = doc(db, "task_rooms", currentSyncId, "tasks", task.id);
+                    batch.set(taskRef, task);
+                }
+
+                await batch.commit();
+
+                // Update local storage
+                saveLocalData();
+                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
+
+                renderTasks();
+                updateSyncIndicator('synced');
+
+                // Reset to cached status after 3 seconds
+                setTimeout(() => updateSyncIndicator('cached'), 3000);
+
+            } catch (err) {
+                console.error("Sync error:", err);
+                updateSyncIndicator('error');
             }
         }
 
@@ -1673,57 +1674,13 @@
 
         async function connectSync() {
             const syncId = elements.syncIdInput.value.trim();
-            if (!syncId) {
-                console.log('No sync ID provided');
-                return;
-            }
-
-            console.log('Connecting with sync ID:', syncId);
-
-            if (!db) {
-                console.error('Firebase database not initialized');
-                updateSyncIndicator('error');
-                alert('Firebase not connected. Please refresh the page.');
-                return;
-            }
-
-            // Unsubscribe from previous
-            if (unsubscribe) unsubscribe();
+            if (!syncId) return;
 
             currentSyncId = syncId;
             localStorage.setItem(STORAGE_KEYS.SYNC_ID, syncId);
-            updateSyncIndicator('syncing');
 
-            try {
-                const tasksCollectionRef = collection(db, "note_rooms", currentSyncId, "tasks");
-
-                unsubscribe = onSnapshot(tasksCollectionRef, (snapshot) => {
-                    const remoteTasks = [];
-                    snapshot.forEach((doc) => {
-                        remoteTasks.push({ id: doc.id, ...doc.data() });
-                    });
-
-                    // Update local data with remote data
-                    tasksData = remoteTasks;
-
-                    // Sort (optional, but good practice if order matters)
-                    // tasksData.sort((a, b) => (a.order || 0) - (b.order || 0));
-
-                    saveLocalData();
-                    renderTasks();
-                    updateSyncIndicator('synced');
-
-                    // Close settings if open? Maybe optional.
-                }, (error) => {
-                    console.error("Sync Error:", error);
-                    updateSyncIndicator('error');
-                });
-
-                closeSettings();
-            } catch (err) {
-                console.error("Connection Error:", err);
-                updateSyncIndicator('error');
-            }
+            await syncWithFirebase();
+            closeSettings();
         }
 
         // --- Task CRUD ---
@@ -1803,7 +1760,27 @@
             updateTask(taskId, { subtasks });
         }
 
+        async function saveTaskToFirebase(task) {
+            if (!db || !currentSyncId) return;
 
+            try {
+                await setDoc(doc(db, "task_rooms", currentSyncId, "tasks", task.id), task);
+                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
+            } catch (err) {
+                console.error("Save task error:", err);
+            }
+        }
+
+        async function deleteTaskFromFirebase(taskId) {
+            if (!db || !currentSyncId) return;
+
+            try {
+                await deleteDoc(doc(db, "task_rooms", currentSyncId, "tasks", taskId));
+                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
+            } catch (err) {
+                console.error("Delete task error:", err);
+            }
+        }
 
         // --- Render ---
         function renderTasks() {
@@ -1916,59 +1893,6 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
-        }
-
-        function setupTaskEventListeners() {
-            // Task Checkbox
-            document.querySelectorAll('.task-checkbox').forEach(cb => {
-                cb.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const taskId = cb.dataset.taskId;
-                    toggleTaskComplete(taskId);
-                });
-            });
-
-            // Subtask Checkbox
-            document.querySelectorAll('.subtask-item').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const taskId = item.dataset.taskId;
-                    const index = parseInt(item.dataset.subtaskIndex);
-                    toggleSubtaskComplete(taskId, index);
-                });
-            });
-
-            // Edit Button
-            document.querySelectorAll('.edit-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const taskId = btn.dataset.taskId;
-                    openTaskModal(taskId);
-                });
-            });
-
-            // Delete Button
-            document.querySelectorAll('.delete-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const taskId = btn.dataset.taskId;
-                    if (confirm("Delete this task?")) {
-                        deleteTask(taskId);
-                    }
-                });
-            });
-
-            // Task Card Click (to edit)
-            document.querySelectorAll('.task-card .task-main').forEach(cardMain => {
-                cardMain.addEventListener('click', (e) => {
-                    // Check if click was on checkbox (handled separately)
-                    if (e.target.closest('.task-checkbox')) return;
-
-                    const card = cardMain.parentElement;
-                    const taskId = card.dataset.taskId;
-                    openTaskModal(taskId);
-                });
-            });
         }
 
         // --- Event Listeners ---
@@ -2102,7 +2026,46 @@
             });
         }
 
+        function setupTaskEventListeners() {
+            // Task checkboxes
+            document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const taskId = checkbox.dataset.taskId;
+                    toggleTaskComplete(taskId);
+                });
+            });
 
+            // Subtask checkboxes
+            document.querySelectorAll('.subtask-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const taskId = item.dataset.taskId;
+                    const index = parseInt(item.dataset.subtaskIndex);
+                    toggleSubtaskComplete(taskId, index);
+                });
+            });
+
+            // Edit buttons
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const taskId = btn.dataset.taskId;
+                    openTaskModal(taskId);
+                });
+            });
+
+            // Delete buttons
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const taskId = btn.dataset.taskId;
+                    if (confirm('Delete this task?')) {
+                        deleteTask(taskId);
+                    }
+                });
+            });
+        }
 
         function toggleSection(section) {
             if (section === 'active') {
@@ -2289,7 +2252,16 @@
             }
         }
 
+        // --- Settings Functions ---
+        function openSettings() {
+            elements.settingsPanel.classList.add('active');
+            elements.settingsBackdrop.classList.add('active');
+        }
 
+        function closeSettings() {
+            elements.settingsPanel.classList.remove('active');
+            elements.settingsBackdrop.classList.remove('active');
+        }
 
         // --- Service Worker Registration ---
         if ('serviceWorker' in navigator) {
