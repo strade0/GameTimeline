@@ -523,38 +523,6 @@
             opacity: 0.6;
         }
 
-        /* --- Hide Button on Card --- */
-        .note-card .hide-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: transparent;
-            border: none;
-            color: rgba(255, 255, 255, 0.3);
-            cursor: pointer;
-            padding: 5px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
-            z-index: 10;
-        }
-
-        .note-card .hide-btn:hover {
-            color: #fff;
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        body.light-mode .note-card .hide-btn {
-            color: rgba(0, 0, 0, 0.3);
-        }
-
-        body.light-mode .note-card .hide-btn:hover {
-            color: #000;
-            background: rgba(0, 0, 0, 0.05);
-        }
-
         /* --- Show/Hide Toggle Button (Inside Container) --- */
         .show-hidden-toggle {
             position: absolute;
@@ -599,6 +567,20 @@
         body.light-mode .note-card.is-hidden {
             border: 1px dashed rgba(0, 0, 0, 0.2);
         }
+
+        /* --- Mobile Responsive Styles --- */
+        @media (max-width: 750px) {
+            .add-btn-wrapper {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .show-hidden-toggle {
+                position: static;
+                width: auto;
+            }
+        }
     </style>
 </head>
 
@@ -638,10 +620,9 @@
         </div>
         <div class="add-btn-wrapper">
             <button class="add-note-btn" id="btnAddNote" disabled>+ Add New Note</button>
+            <!-- Show/Hide Hidden Toggle - moved here for mobile layout -->
+            <button id="toggleHiddenBtn" class="show-hidden-toggle">Show Hidden Notes</button>
         </div>
-
-        <!-- Show/Hide Hidden Toggle -->
-        <button id="toggleHiddenBtn" class="show-hidden-toggle">Show Hidden Notes</button>
     </div>
 
     <!-- Editor Modal (Hidden by default) -->
@@ -830,28 +811,11 @@
                 // Hidden note -> Click "Eye" (Show)
 
                 // Let's go with:
-                // If NOT hidden: Icon is Eye (tooltip: Hide)
-                // If hidden: Icon is EyeSlash (tooltip: Unhide)
-                // User asked: "add an eye... which would hide those notes"
-
-                const iconClass = note.hidden ? 'ph-eye-slash' : 'ph-eye';
-                const iconTitle = note.hidden ? 'Unhide Note' : 'Hide Note';
-
                 card.innerHTML = `
-                    <button class="hide-btn" title="${iconTitle}">
-                        <i class="ph ${iconClass}" style="font-size: 18px;"></i>
-                    </button>
                     <h3>${escapeHtml(note.title || 'Untitled')}</h3>
                     <p>${escapeHtml(note.content || '')}</p>
                     <div class="date">${dateStr}</div>
                 `;
-
-                // Hide/Unhide Action
-                const hideBtn = card.querySelector('.hide-btn');
-                hideBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent opening editor
-                    toggleNoteHiddenStatus(note.id, note.hidden);
-                });
 
                 // Open Editor Action
                 card.addEventListener('click', () => openEditor(note.id, note));
