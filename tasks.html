@@ -1905,6 +1905,59 @@
             return div.innerHTML;
         }
 
+        function setupTaskEventListeners() {
+            // Task Checkbox
+            document.querySelectorAll('.task-checkbox').forEach(cb => {
+                cb.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const taskId = cb.dataset.taskId;
+                    toggleTaskComplete(taskId);
+                });
+            });
+
+            // Subtask Checkbox
+            document.querySelectorAll('.subtask-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const taskId = item.dataset.taskId;
+                    const index = parseInt(item.dataset.subtaskIndex);
+                    toggleSubtaskComplete(taskId, index);
+                });
+            });
+
+            // Edit Button
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const taskId = btn.dataset.taskId;
+                    openTaskModal(taskId);
+                });
+            });
+
+            // Delete Button
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const taskId = btn.dataset.taskId;
+                    if (confirm("Delete this task?")) {
+                        deleteTask(taskId);
+                    }
+                });
+            });
+
+            // Task Card Click (to edit)
+            document.querySelectorAll('.task-card .task-main').forEach(cardMain => {
+                cardMain.addEventListener('click', (e) => {
+                    // Check if click was on checkbox (handled separately)
+                    if (e.target.closest('.task-checkbox')) return;
+
+                    const card = cardMain.parentElement;
+                    const taskId = card.dataset.taskId;
+                    openTaskModal(taskId);
+                });
+            });
+        }
+
         // --- Event Listeners ---
         function setupEventListeners() {
             // FAB
