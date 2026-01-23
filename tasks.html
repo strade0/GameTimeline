@@ -1627,7 +1627,7 @@
         async function saveTaskToFirebase(task) {
             if (!db || !currentSyncId) return;
             try {
-                const taskRef = doc(db, "task_rooms", currentSyncId, "tasks", task.id);
+                const taskRef = doc(db, "note_rooms", currentSyncId, "tasks", task.id);
                 await setDoc(taskRef, task);
             } catch (err) {
                 console.error("Error saving task:", err);
@@ -1637,7 +1637,7 @@
         async function deleteTaskFromFirebase(taskId) {
             if (!db || !currentSyncId) return;
             try {
-                const taskRef = doc(db, "task_rooms", currentSyncId, "tasks", taskId);
+                const taskRef = doc(db, "note_rooms", currentSyncId, "tasks", taskId);
                 await deleteDoc(taskRef);
             } catch (err) {
                 console.error("Error deleting task:", err);
@@ -1695,7 +1695,7 @@
             updateSyncIndicator('syncing');
 
             try {
-                const tasksCollectionRef = collection(db, "task_rooms", currentSyncId, "tasks");
+                const tasksCollectionRef = collection(db, "note_rooms", currentSyncId, "tasks");
 
                 unsubscribe = onSnapshot(tasksCollectionRef, (snapshot) => {
                     const remoteTasks = [];

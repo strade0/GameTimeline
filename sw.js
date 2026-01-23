@@ -1,7 +1,7 @@
 // Service Worker for Tasks PWA
 // Provides offline support and caching
 
-const CACHE_NAME = 'tasks-cache-v6';
+const CACHE_NAME = 'tasks-cache-v7';
 const STATIC_ASSETS = [
     '/tasks.html',
     '/favicon.png',
