@@ -1528,6 +1528,16 @@
             localStorage.setItem(STORAGE_KEYS.THEME, isLight ? 'light' : 'dark');
         }
 
+        function openSettings() {
+            elements.settingsPanel.classList.add('active');
+            elements.settingsBackdrop.classList.add('active');
+        }
+
+        function closeSettings() {
+            elements.settingsPanel.classList.remove('active');
+            elements.settingsBackdrop.classList.remove('active');
+        }
+
         // --- Local Data ---
         function loadLocalData() {
             const saved = localStorage.getItem(STORAGE_KEYS.TASKS);

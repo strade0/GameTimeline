@@ -1,7 +1,7 @@
 // Service Worker for Tasks PWA
 // Provides offline support and caching
 
-const CACHE_NAME = 'tasks-cache-v1';
+const CACHE_NAME = 'tasks-cache-v2';
 const STATIC_ASSETS = [
     '/tasks.html',
     '/favicon.png',
@@ -36,14 +36,14 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     // Skip non-GET requests
     if (event.request.method !== 'GET') return;
-    
+
     // Skip Firebase requests - always go to network
-    if (event.request.url.includes('firebasejs') || 
+    if (event.request.url.includes('firebasejs') ||
         event.request.url.includes('googleapis.com') ||
         event.request.url.includes('firestore')) {
         return;
     }
-    
+
     event.respondWith(
         fetch(event.request)
             .then((response) => {
