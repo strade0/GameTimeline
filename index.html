@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta name="robots" content="noindex, nofollow, noimageindex">
     <meta name="googlebot" content="noindex, nofollow">
@@ -7,15 +8,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="favicon.png">
     <title>Game Dev Tracker</title>
-    
+
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Load Inter font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+
     <!-- Load Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
@@ -48,21 +49,41 @@
         }
 
         /* Modal Animation */
-        .modal-enter { opacity: 0; transform: scale(0.95); }
-        .modal-enter-active { opacity: 1; transform: scale(1); transition: opacity 300ms, transform 300ms; }
-        .modal-exit { opacity: 1; transform: scale(1); }
-        .modal-exit-active { opacity: 0; transform: scale(0.95); transition: opacity 200ms, transform 200ms; }
+        .modal-enter {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+
+        .modal-enter-active {
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 300ms, transform 300ms;
+        }
+
+        .modal-exit {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .modal-exit-active {
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 200ms, transform 200ms;
+        }
 
         /* Step Dots */
         .dot {
-            height: 8px; width: 8px;
-            background-color: rgba(255,255,255,0.2);
+            height: 8px;
+            width: 8px;
+            background-color: rgba(255, 255, 255, 0.2);
             border-radius: 50%;
             display: inline-block;
             transition: all 0.3s;
         }
+
         .dot.active {
-            background-color: #68f983; /* Matching the green accent from checkbox.html */
+            background-color: #68f983;
+            /* Matching the green accent from checkbox.html */
             width: 24px;
             border-radius: 4px;
         }
@@ -74,15 +95,19 @@
             font-weight: 600;
             transition: opacity 0.2s;
         }
+
         .btn-accent:hover {
             opacity: 0.9;
         }
     </style>
 </head>
+
 <body class="flex flex-col items-center justify-center p-6 relative selection:bg-green-500 selection:text-black">
 
     <!-- Floating Help Button -->
-    <button onclick="openOnboarding()" class="fixed top-6 right-6 p-3 rounded-full glass-card hover:bg-white/10 text-gray-300 hover:text-white transition-colors z-40" title="Show Tutorial">
+    <button onclick="openOnboarding()"
+        class="fixed top-6 right-6 p-3 rounded-full glass-card hover:bg-white/10 text-gray-300 hover:text-white transition-colors z-40"
+        title="Show Tutorial">
         <i class="ph ph-question text-xl"></i>
     </button>
 
@@ -98,55 +123,78 @@
 
     <!-- Main Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-6xl px-4">
-        
+
         <!-- Timeline Card (Whole card is a link) -->
-        <a href="timeline.html" class="glass-card rounded-2xl p-8 flex flex-col items-center text-center group cursor-pointer h-full">
-            <div class="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-6 group-hover:bg-blue-500/20 transition-colors border border-blue-500/20">
+        <a href="timeline.html"
+            class="glass-card rounded-2xl p-8 flex flex-col items-center text-center group cursor-pointer h-full">
+            <div
+                class="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-6 group-hover:bg-blue-500/20 transition-colors border border-blue-500/20">
                 <i class="ph ph-calendar-check text-3xl text-blue-400"></i>
             </div>
             <h2 class="text-2xl font-semibold text-white mb-3">Gantt Timeline</h2>
             <p class="text-gray-400 mb-8 flex-grow text-sm leading-relaxed">
-                Visualise your Module 13-17 deadlines. See how much time is left for proposals, prototypes, and final submissions.
+                Visualise your Module 13-17 deadlines. See how much time is left for proposals, prototypes, and final
+                submissions.
             </p>
-            <div class="w-full py-3 rounded-xl font-medium bg-white text-gray-900 group-hover:bg-gray-200 transition-colors">
+            <div
+                class="w-full py-3 rounded-xl font-medium bg-white text-gray-900 group-hover:bg-gray-200 transition-colors">
                 Open Timeline
             </div>
         </a>
 
         <!-- Progress Card (Whole card is a link) -->
-        <a href="checkbox.html" class="glass-card rounded-2xl p-8 flex flex-col items-center text-center group cursor-pointer h-full">
-            <div class="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-6 group-hover:bg-green-500/20 transition-colors border border-green-500/20">
+        <a href="checkbox.html"
+            class="glass-card rounded-2xl p-8 flex flex-col items-center text-center group cursor-pointer h-full">
+            <div
+                class="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center mb-6 group-hover:bg-green-500/20 transition-colors border border-green-500/20">
                 <i class="ph ph-check-square text-3xl text-[#68f983]"></i>
             </div>
             <h2 class="text-2xl font-semibold text-white mb-3">Progress Tracker</h2>
             <p class="text-gray-400 mb-8 flex-grow text-sm leading-relaxed">
                 Weekly checklists for HCI, 3D Modelling, and Mechanics. Track lectures and asset creation week-by-week.
             </p>
-            <div class="w-full py-3 rounded-xl font-medium bg-white text-gray-900 group-hover:bg-gray-200 transition-colors">
+            <div
+                class="w-full py-3 rounded-xl font-medium bg-white text-gray-900 group-hover:bg-gray-200 transition-colors">
                 Track Progress
             </div>
         </a>
 
         <!-- Notes Card (Whole card is a link) -->
-        <a href="notes.html" class="glass-card rounded-2xl p-8 flex flex-col items-center text-center group cursor-pointer h-full">
-            <div class="w-16 h-16 rounded-full bg-purple-500/10 flex items-center justify-center mb-6 group-hover:bg-purple-500/20 transition-colors border border-purple-500/20">
+        <a href="notes.html"
+            class="glass-card rounded-2xl p-8 flex flex-col items-center text-center group cursor-pointer h-full">
+            <div
+                class="w-16 h-16 rounded-full bg-purple-500/10 flex items-center justify-center mb-6 group-hover:bg-purple-500/20 transition-colors border border-purple-500/20">
                 <i class="ph ph-notebook text-3xl text-purple-400"></i>
             </div>
             <h2 class="text-2xl font-semibold text-white mb-3">Project Notes</h2>
             <p class="text-gray-400 mb-8 flex-grow text-sm leading-relaxed">
                 A dedicated space for documentation. Create, edit, and delete text notes synced to your cloud ID.
             </p>
-            <div class="w-full py-3 rounded-xl font-medium bg-white text-gray-900 group-hover:bg-gray-200 transition-colors">
+            <div
+                class="w-full py-3 rounded-xl font-medium bg-white text-gray-900 group-hover:bg-gray-200 transition-colors">
                 View Notes
             </div>
+        </a>
+
+        <!-- Tasks Card (Icon-only mini card) -->
+        <a href="tasks.html"
+            class="glass-card rounded-2xl p-6 flex flex-col items-center justify-center text-center group cursor-pointer"
+            style="min-width: 100px; max-width: 140px;">
+            <div
+                class="w-14 h-14 rounded-full bg-cyan-500/10 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors border border-cyan-500/20">
+                <i class="ph ph-list-checks text-2xl text-cyan-400"></i>
+            </div>
+            <span class="text-sm font-medium text-white mt-3 opacity-80 group-hover:opacity-100">Tasks</span>
         </a>
 
     </div>
 
     <!-- ONBOARDING MODAL -->
-    <div id="onboarding-overlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center transition-opacity duration-300 p-4">
-        <div id="onboarding-card" class="glass-card w-full max-w-lg rounded-2xl overflow-hidden flex flex-col relative bg-[#1a1a1a]">
-            
+    <div id="onboarding-overlay"
+        class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center transition-opacity duration-300 p-4">
+        <div id="onboarding-card"
+            class="glass-card w-full max-w-lg rounded-2xl overflow-hidden flex flex-col relative bg-[#1a1a1a]">
+
             <!-- Close X -->
             <button onclick="closeOnboarding()" class="absolute top-4 right-4 text-gray-500 hover:text-white">
                 <i class="ph ph-x text-xl"></i>
@@ -154,7 +202,8 @@
 
             <!-- Step 1: Welcome -->
             <div class="step hidden p-8 text-center" id="step-1">
-                <div class="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-indigo-500/20">
+                <div
+                    class="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-indigo-500/20">
                     <i class="ph ph-hand-waving text-4xl text-indigo-400"></i>
                 </div>
                 <h3 class="text-2xl font-bold text-white mb-3">Welcome Aboard</h3>
@@ -166,7 +215,8 @@
 
             <!-- Step 2: Tools -->
             <div class="step hidden p-8 text-center" id="step-2">
-                <div class="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-blue-500/20">
+                <div
+                    class="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-blue-500/20">
                     <i class="ph ph-stack text-4xl text-blue-400"></i>
                 </div>
                 <h3 class="text-2xl font-bold text-white mb-3">The Tools</h3>
@@ -177,7 +227,8 @@
                     </div>
                     <div class="flex items-start gap-3">
                         <i class="ph ph-check-square text-[#68f983] mt-1 text-lg"></i>
-                        <span><strong>Progress:</strong> Tick off weekly tasks for specific modules (HCI, Advanced 3D).</span>
+                        <span><strong>Progress:</strong> Tick off weekly tasks for specific modules (HCI, Advanced
+                            3D).</span>
                     </div>
                     <div class="flex items-start gap-3">
                         <i class="ph ph-notebook text-purple-400 mt-1 text-lg"></i>
@@ -188,18 +239,22 @@
 
             <!-- Step 3: Sync Logic -->
             <div class="step hidden p-8 text-center" id="step-3">
-                <div class="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-green-500/20">
+                <div
+                    class="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-green-500/20">
                     <i class="ph ph-cloud-check text-4xl text-[#68f983]"></i>
                 </div>
                 <h3 class="text-2xl font-bold text-white mb-2">Important: Syncing</h3>
                 <p class="text-gray-300 text-sm mb-6">
                     To save your progress across devices, you must connect to a room.
                 </p>
-                
+
                 <div class="bg-white/5 border border-white/10 rounded-xl p-5 text-left">
-                    <p class="text-sm text-gray-300 mb-3"><span class="text-[#68f983] font-bold">1.</span> Open <strong>Progress</strong> or <strong>Notes</strong>.</p>
-                    <p class="text-sm text-gray-300 mb-3"><span class="text-[#68f983] font-bold">2.</span> Look for the <strong>Sync Controls</strong> panel (top right).</p>
-                    <p class="text-sm text-gray-300"><span class="text-[#68f983] font-bold">3.</span> Type any unique text (e.g., <em>"MyUni2025"</em>) and click <strong>Connect</strong>.</p>
+                    <p class="text-sm text-gray-300 mb-3"><span class="text-[#68f983] font-bold">1.</span> Open
+                        <strong>Progress</strong> or <strong>Notes</strong>.</p>
+                    <p class="text-sm text-gray-300 mb-3"><span class="text-[#68f983] font-bold">2.</span> Look for the
+                        <strong>Sync Controls</strong> panel (top right).</p>
+                    <p class="text-sm text-gray-300"><span class="text-[#68f983] font-bold">3.</span> Type any unique
+                        text (e.g., <em>"MyUni2025"</em>) and click <strong>Connect</strong>.</p>
                 </div>
                 <p class="mt-4 text-xs text-gray-500 italic">
                     * The app will remember this ID for you next time.
@@ -211,7 +266,8 @@
                 <div class="flex gap-2" id="step-dots">
                     <!-- Dots injected by JS -->
                 </div>
-                <button id="next-btn" class="px-6 py-2 bg-white text-black hover:bg-gray-200 rounded-lg font-bold text-sm transition-colors">
+                <button id="next-btn"
+                    class="px-6 py-2 bg-white text-black hover:bg-gray-200 rounded-lg font-bold text-sm transition-colors">
                     Next
                 </button>
             </div>
@@ -282,16 +338,15 @@
             if (currentStep === totalSteps) {
                 nextBtn.textContent = "Get Started";
                 // Switch to green button style for final step
-                nextBtn.style.backgroundColor = "#68f983"; 
+                nextBtn.style.backgroundColor = "#68f983";
                 nextBtn.style.color = "#000";
             } else {
                 nextBtn.textContent = "Next";
-                nextBtn.style.backgroundColor = "#ffffff"; 
+                nextBtn.style.backgroundColor = "#ffffff";
                 nextBtn.style.color = "#000";
             }
         }
     </script>
 </body>
+
 </html>
-
-
