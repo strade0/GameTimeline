@@ -1397,6 +1397,13 @@
         } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 
+        // --- Global Error Handler (Temporary for Debugging) ---
+        window.onerror = function (msg, url, line, col, error) {
+            alert("Error: " + msg + "\nLine: " + line + "\nCol: " + col);
+            // Hide spinner so user can hopefully at least see settings
+            document.getElementById('loadingState').style.display = 'none';
+        };
+
         // --- Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyA4oXzllt-5dk-TLG_wAhXggJ7scY-VwtM",
@@ -1488,8 +1495,23 @@
         async function init() {
             loadTheme();
             loadLocalData();
-            renderTasks();
-            setupEventListeners();
+
+            try {
+                renderTasks();
+            } catch (e) {
+                console.error("Render error:", e);
+                alert("Render Error: " + e.message);
+            }
+
+            try {
+                setupEventListeners();
+            } catch (e) {
+                console.error("Setup Listeners error:", e);
+                alert("Setup Error: " + e.message);
+            }
+
+            // Always hide spinner
+            if (elements.loadingState) elements.loadingState.style.display = 'none';
 
             // Initialize Firebase
             try {
