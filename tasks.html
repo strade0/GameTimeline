@@ -8,6 +8,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#232323">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
@@ -1802,27 +1803,7 @@
             updateTask(taskId, { subtasks });
         }
 
-        async function saveTaskToFirebase(task) {
-            if (!db || !currentSyncId) return;
 
-            try {
-                await setDoc(doc(db, "task_rooms", currentSyncId, "tasks", task.id), task);
-                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
-            } catch (err) {
-                console.error("Save task error:", err);
-            }
-        }
-
-        async function deleteTaskFromFirebase(taskId) {
-            if (!db || !currentSyncId) return;
-
-            try {
-                await deleteDoc(doc(db, "task_rooms", currentSyncId, "tasks", taskId));
-                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
-            } catch (err) {
-                console.error("Delete task error:", err);
-            }
-        }
 
         // --- Render ---
         function renderTasks() {
