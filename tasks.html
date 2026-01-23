@@ -2102,46 +2102,7 @@
             });
         }
 
-        function setupTaskEventListeners() {
-            // Task checkboxes
-            document.querySelectorAll('.task-checkbox').forEach(checkbox => {
-                checkbox.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const taskId = checkbox.dataset.taskId;
-                    toggleTaskComplete(taskId);
-                });
-            });
 
-            // Subtask checkboxes
-            document.querySelectorAll('.subtask-item').forEach(item => {
-                item.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const taskId = item.dataset.taskId;
-                    const index = parseInt(item.dataset.subtaskIndex);
-                    toggleSubtaskComplete(taskId, index);
-                });
-            });
-
-            // Edit buttons
-            document.querySelectorAll('.edit-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const taskId = btn.dataset.taskId;
-                    openTaskModal(taskId);
-                });
-            });
-
-            // Delete buttons
-            document.querySelectorAll('.delete-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const taskId = btn.dataset.taskId;
-                    if (confirm('Delete this task?')) {
-                        deleteTask(taskId);
-                    }
-                });
-            });
-        }
 
         function toggleSection(section) {
             if (section === 'active') {
