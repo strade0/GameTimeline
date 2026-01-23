@@ -1,0 +1,2278 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="robots" content="noindex, nofollow, noimageindex">
+    <meta name="googlebot" content="noindex, nofollow">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#232323">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+    <title>Tasks</title>
+    <!-- Load Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        /* --- Core Styles --- */
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: linear-gradient(135deg, #232323 0%, #000000 100%);
+            background-attachment: fixed;
+            color: #f5f5f5;
+            min-height: 100vh;
+            min-height: 100dvh;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        body.light-mode {
+            background: linear-gradient(135deg, #f0f0f0 0%, #d5d5d5 100%);
+            color: #1a1a1a;
+        }
+
+        /* --- Header Bar --- */
+        .header-bar {
+            position: fixed;
+            top: 16px;
+            left: 15%;
+            right: 15%;
+            height: 56px;
+            background: rgba(35, 35, 35, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 100;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        @media (max-width: 600px) {
+            .header-bar {
+                left: 16px;
+                right: 16px;
+            }
+        }
+
+        body.light-mode .header-bar {
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .home-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #f5f5f5;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .home-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        body.light-mode .home-btn {
+            background: rgba(0, 0, 0, 0.05);
+            color: #1a1a1a;
+        }
+
+        .header-title {
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sync-indicator {
+            font-size: 0.75em;
+            opacity: 0.6;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .sync-indicator.syncing {
+            color: #68f983;
+        }
+
+        .sync-btn,
+        .settings-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #f5f5f5;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .sync-btn:hover,
+        .settings-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        body.light-mode .sync-btn,
+        body.light-mode .settings-btn {
+            background: rgba(0, 0, 0, 0.05);
+            color: #1a1a1a;
+        }
+
+        /* --- Main Container --- */
+        .main-container {
+            padding: 96px 24px 100px 24px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 600px) {
+            .main-container {
+                padding: 88px 20px 100px 20px;
+            }
+        }
+
+        /* --- Task List --- */
+        .task-section {
+            margin-bottom: 24px;
+        }
+
+        .section-header {
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.5;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .section-header .toggle-icon {
+            transition: transform 0.2s ease;
+        }
+
+        .section-header.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .task-list.collapsed {
+            display: none;
+        }
+
+        /* --- Task Card --- */
+        .task-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 14px 16px;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .task-card:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .task-card.completed {
+            opacity: 0.5;
+        }
+
+        body.light-mode .task-card {
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        body.light-mode .task-card:hover {
+            background: rgba(255, 255, 255, 0.85);
+        }
+
+        .task-main {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .task-checkbox {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+            transition: all 0.2s ease;
+        }
+
+        .task-checkbox:hover {
+            border-color: #68f983;
+        }
+
+        .task-checkbox.checked {
+            background: #68f983;
+            border-color: #68f983;
+        }
+
+        .task-checkbox.checked i {
+            color: #1a1a1a;
+        }
+
+        body.light-mode .task-checkbox {
+            border-color: rgba(0, 0, 0, 0.2);
+        }
+
+        body.light-mode .task-checkbox.checked {
+            background: #1a1a1a;
+            border-color: #1a1a1a;
+        }
+
+        body.light-mode .task-checkbox.checked i {
+            color: #fff;
+        }
+
+        .task-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .task-title {
+            font-size: 1em;
+            font-weight: 500;
+            word-break: break-word;
+        }
+
+        .task-card.completed .task-title {
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+
+        .task-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 6px;
+            font-size: 0.8em;
+            opacity: 0.6;
+        }
+
+        .task-due {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .task-due.overdue {
+            color: #ff6b6b;
+            opacity: 1;
+        }
+
+        .task-due.today {
+            color: #ffd93d;
+            opacity: 1;
+        }
+
+        /* --- Subtasks --- */
+        .subtask-list {
+            margin-top: 10px;
+            margin-left: 34px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .subtask-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9em;
+        }
+
+        .subtask-checkbox {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+        }
+
+        .subtask-checkbox:hover {
+            border-color: #68f983;
+        }
+
+        .subtask-checkbox.checked {
+            background: rgba(104, 249, 131, 0.3);
+            border-color: #68f983;
+        }
+
+        body.light-mode .subtask-checkbox {
+            border-color: rgba(0, 0, 0, 0.15);
+        }
+
+        body.light-mode .subtask-checkbox.checked {
+            background: rgba(0, 0, 0, 0.1);
+            border-color: #1a1a1a;
+        }
+
+        .subtask-text {
+            flex: 1;
+        }
+
+        .subtask-item.completed .subtask-text {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        .add-subtask-btn {
+            background: none;
+            border: none;
+            color: #68f983;
+            font-size: 0.85em;
+            cursor: pointer;
+            padding: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+
+        .add-subtask-btn:hover {
+            opacity: 1;
+        }
+
+        body.light-mode .add-subtask-btn {
+            color: #1a1a1a;
+        }
+
+        /* --- Floating Add Button --- */
+        .fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: #68f983;
+            border: none;
+            box-shadow: 0 4px 20px rgba(104, 249, 131, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 99;
+            transition: all 0.2s ease;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 25px rgba(104, 249, 131, 0.5);
+        }
+
+        .fab i {
+            font-size: 28px;
+            color: #1a1a1a;
+        }
+
+        body.light-mode .fab {
+            background: #1a1a1a;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        body.light-mode .fab i {
+            color: #fff;
+        }
+
+        /* --- Modal Overlay --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            background: #2a2a2a;
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            border-radius: 20px 20px 0 0;
+            padding: 24px;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: translateY(0);
+        }
+
+        body.light-mode .modal-content {
+            background: #fff;
+        }
+
+        @media (min-width: 600px) {
+            .modal-content {
+                border-radius: 20px;
+                margin-bottom: 24px;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #f5f5f5;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body.light-mode .modal-close {
+            background: rgba(0, 0, 0, 0.05);
+            color: #1a1a1a;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.85em;
+            font-weight: 500;
+            margin-bottom: 8px;
+            opacity: 0.7;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.08);
+            color: #f5f5f5;
+            font-size: 1em;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        .form-input:focus {
+            border-color: #68f983;
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        body.light-mode .form-input {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.1);
+            color: #1a1a1a;
+        }
+
+        body.light-mode .form-input::placeholder {
+            color: rgba(0, 0, 0, 0.3);
+        }
+
+        body.light-mode .form-input:focus {
+            border-color: #1a1a1a;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px 20px;
+            border-radius: 12px;
+            border: none;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: #68f983;
+            color: #1a1a1a;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #f5f5f5;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn-danger {
+            background: #ff4d4d;
+            color: white;
+        }
+
+        body.light-mode .btn-primary {
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        body.light-mode .btn-secondary {
+            background: rgba(0, 0, 0, 0.05);
+            color: #1a1a1a;
+        }
+
+        /* --- Settings Panel --- */
+        .settings-panel {
+            position: fixed;
+            top: 88px;
+            right: 20px;
+            width: 280px;
+            max-width: calc(100vw - 40px);
+            background: rgba(42, 42, 42, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            z-index: 150;
+            transform: translateY(-10px);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .settings-panel.active {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        body.light-mode .settings-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        }
+
+        .settings-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 140;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .settings-backdrop.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .settings-title {
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .settings-close {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #f5f5f5;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body.light-mode .settings-close {
+            background: rgba(0, 0, 0, 0.05);
+            color: #1a1a1a;
+        }
+
+        .settings-group {
+            margin-bottom: 20px;
+        }
+
+        .settings-label {
+            font-size: 0.85em;
+            font-weight: 500;
+            margin-bottom: 10px;
+            opacity: 0.7;
+        }
+
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        body.light-mode .settings-row {
+            border-bottom-color: rgba(0, 0, 0, 0.05);
+        }
+
+        /* Theme Toggle */
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 28px;
+        }
+
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .theme-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #555;
+            transition: .3s;
+            border-radius: 28px;
+        }
+
+        .theme-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked+.theme-slider {
+            background-color: #ccc;
+        }
+
+        input:checked+.theme-slider:before {
+            transform: translateX(22px);
+            background-color: #333;
+        }
+
+        /* --- Empty State --- */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            opacity: 0.5;
+        }
+
+        .empty-state i {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state p {
+            font-size: 1.1em;
+        }
+
+        /* --- Loading State --- */
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #68f983;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* --- Sync ID Input in Settings --- */
+        .sync-id-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .sync-id-group input {
+            flex: 1;
+        }
+
+        .sync-id-group button {
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: none;
+            background: #68f983;
+            color: #1a1a1a;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        body.light-mode .sync-id-group button {
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        /* --- Task Actions (Edit/Delete on swipe or click) --- */
+        .task-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            margin-left: 34px;
+        }
+
+        .task-action-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: none;
+            font-size: 0.8em;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.1);
+            color: #f5f5f5;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .task-action-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .task-action-btn.delete {
+            color: #ff6b6b;
+        }
+
+        body.light-mode .task-action-btn {
+            background: rgba(0, 0, 0, 0.05);
+            color: #1a1a1a;
+        }
+
+        body.light-mode .task-action-btn.delete {
+            color: #ff4d4d;
+        }
+
+        /* --- Date Picker Button --- */
+        .date-picker-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #f5f5f5;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+        }
+
+        .date-picker-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #68f983;
+            color: #68f983;
+        }
+
+        .date-picker-btn.has-date {
+            background: rgba(104, 249, 131, 0.15);
+            border-color: #68f983;
+            color: #68f983;
+        }
+
+        body.light-mode .date-picker-btn {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.1);
+            color: #1a1a1a;
+        }
+
+        body.light-mode .date-picker-btn:hover,
+        body.light-mode .date-picker-btn.has-date {
+            background: rgba(0, 0, 0, 0.1);
+            border-color: #1a1a1a;
+        }
+
+        /* Due Date Display Chip */
+        .due-date-display {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 10px;
+            padding: 6px 12px;
+            background: rgba(104, 249, 131, 0.15);
+            border: 1px solid rgba(104, 249, 131, 0.3);
+            border-radius: 20px;
+            font-size: 0.85em;
+            color: #68f983;
+        }
+
+        .clear-date-btn {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 4px;
+            font-size: 1.2em;
+            line-height: 1;
+            opacity: 0.7;
+        }
+
+        .clear-date-btn:hover {
+            opacity: 1;
+        }
+
+        body.light-mode .due-date-display {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.1);
+            color: #1a1a1a;
+        }
+
+        /* --- Custom Date Picker Modal --- */
+        .date-picker-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .date-picker-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .date-picker-modal {
+            background: #2a2a2a;
+            border-radius: 20px;
+            padding: 24px;
+            width: 320px;
+            max-width: 90vw;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+
+        .date-picker-overlay.active .date-picker-modal {
+            transform: scale(1);
+        }
+
+        body.light-mode .date-picker-modal {
+            background: #fff;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .date-picker-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .date-picker-nav {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #f5f5f5;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .date-picker-nav:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        body.light-mode .date-picker-nav {
+            background: rgba(0, 0, 0, 0.05);
+            color: #1a1a1a;
+        }
+
+        .date-picker-month-year {
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        .date-picker-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            margin-bottom: 8px;
+            text-align: center;
+            font-size: 0.75em;
+            font-weight: 500;
+            opacity: 0.5;
+        }
+
+        .date-picker-days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+        }
+
+        .date-picker-day {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: #f5f5f5;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .date-picker-day:hover:not(.empty):not(.selected) {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .date-picker-day.today {
+            border: 2px solid #68f983;
+        }
+
+        .date-picker-day.selected {
+            background: #68f983;
+            color: #1a1a1a;
+            font-weight: 600;
+        }
+
+        .date-picker-day.empty {
+            cursor: default;
+        }
+
+        .date-picker-day.other-month {
+            opacity: 0.3;
+        }
+
+        body.light-mode .date-picker-day {
+            color: #1a1a1a;
+        }
+
+        body.light-mode .date-picker-day:hover:not(.empty):not(.selected) {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        body.light-mode .date-picker-day.selected {
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        .date-picker-quick {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        body.light-mode .date-picker-quick {
+            border-top-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .date-picker-quick-btn {
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: none;
+            background: rgba(255, 255, 255, 0.08);
+            color: #f5f5f5;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.2s ease;
+        }
+
+        .date-picker-quick-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        body.light-mode .date-picker-quick-btn {
+            background: rgba(0, 0, 0, 0.05);
+            color: #1a1a1a;
+        }
+
+        .date-picker-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .date-picker-actions button {
+            flex: 1;
+            padding: 12px;
+            border-radius: 12px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .date-picker-cancel {
+            background: rgba(255, 255, 255, 0.1);
+            color: #f5f5f5;
+        }
+
+        .date-picker-done {
+            background: #68f983;
+            color: #1a1a1a;
+        }
+
+        body.light-mode .date-picker-cancel {
+            background: rgba(0, 0, 0, 0.05);
+            color: #1a1a1a;
+        }
+
+        body.light-mode .date-picker-done {
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        /* --- Install Banner --- */
+        .install-banner {
+            position: fixed;
+            bottom: 90px;
+            left: 16px;
+            right: 16px;
+            max-width: 400px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #68f983, #4fd87a);
+            color: #1a1a1a;
+            padding: 16px 20px;
+            border-radius: 16px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 20px rgba(104, 249, 131, 0.3);
+            z-index: 90;
+        }
+
+        .install-banner.show {
+            display: flex;
+        }
+
+        .install-banner-text {
+            flex: 1;
+        }
+
+        .install-banner-text strong {
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .install-banner-text span {
+            font-size: 0.85em;
+            opacity: 0.8;
+        }
+
+        .install-banner button {
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: none;
+            background: #1a1a1a;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .install-banner .close-banner {
+            background: transparent;
+            padding: 8px;
+            color: #1a1a1a;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Header Bar -->
+    <header class="header-bar">
+        <div class="header-left">
+            <a href="index.html" class="home-btn" title="Back to Home">
+                <i class="ph ph-house" style="font-size: 20px;"></i>
+            </a>
+            <span class="header-title">Tasks</span>
+        </div>
+        <div class="header-right">
+            <button class="settings-btn" id="settingsBtn" title="Settings">
+                <i class="ph ph-gear" style="font-size: 20px;"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container">
+        <!-- Active Tasks -->
+        <section class="task-section" id="activeSection">
+            <div class="section-header" id="activeHeader">
+                <i class="ph ph-caret-down toggle-icon" style="font-size: 14px;"></i>
+                <span>Active Tasks (<span id="activeCount">0</span>)</span>
+            </div>
+            <div class="task-list" id="activeTaskList">
+                <div class="loading-spinner" id="loadingState">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Completed Tasks -->
+        <section class="task-section" id="completedSection" style="display: none;">
+            <div class="section-header" id="completedHeader">
+                <i class="ph ph-caret-down toggle-icon" style="font-size: 14px;"></i>
+                <span>Completed (<span id="completedCount">0</span>)</span>
+            </div>
+            <div class="task-list" id="completedTaskList"></div>
+        </section>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="emptyState" style="display: none;">
+            <i class="ph ph-check-circle"></i>
+            <p>No tasks yet. Tap + to add one!</p>
+        </div>
+    </main>
+
+    <!-- Floating Add Button -->
+    <button class="fab" id="fabAdd" title="Add Task">
+        <i class="ph ph-plus"></i>
+    </button>
+
+    <!-- Add/Edit Task Modal -->
+    <div class="modal-overlay" id="taskModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title" id="modalTitle">New Task</span>
+                <button class="modal-close" id="modalClose">
+                    <i class="ph ph-x" style="font-size: 20px;"></i>
+                </button>
+            </div>
+            <form id="taskForm">
+                <div class="form-group">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <input type="text" class="form-input" id="taskTitleInput" placeholder="What needs to be done?"
+                            required style="flex: 1;">
+                        <button type="button" class="date-picker-btn" id="datePickerBtn" title="Set due date">
+                            <i class="ph ph-clock" style="font-size: 22px;"></i>
+                        </button>
+                    </div>
+                    <input type="date" class="form-input" id="taskDueInput" style="display: none;">
+                    <div class="due-date-display" id="dueDateDisplay" style="display: none;">
+                        <i class="ph ph-calendar" style="font-size: 14px;"></i>
+                        <span id="dueDateText"></span>
+                        <button type="button" class="clear-date-btn" id="clearDateBtn">×</button>
+                    </div>
+                </div>
+                <div class="form-group" id="subtasksGroup">
+                    <label class="form-label">Subtasks</label>
+                    <div id="subtasksContainer"></div>
+                    <button type="button" class="add-subtask-btn" id="addSubtaskBtn">
+                        <i class="ph ph-plus" style="font-size: 14px;"></i> Add subtask
+                    </button>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="deleteTaskBtn"
+                        style="display: none;">Delete</button>
+                    <button type="submit" class="btn btn-primary" id="saveBtn">Save Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom Date Picker Modal -->
+    <div class="date-picker-overlay" id="datePickerOverlay">
+        <div class="date-picker-modal">
+            <div class="date-picker-header">
+                <button class="date-picker-nav" id="datePrevMonth">
+                    <i class="ph ph-caret-left" style="font-size: 18px;"></i>
+                </button>
+                <span class="date-picker-month-year" id="dateMonthYear">January 2026</span>
+                <button class="date-picker-nav" id="dateNextMonth">
+                    <i class="ph ph-caret-right" style="font-size: 18px;"></i>
+                </button>
+            </div>
+            <div class="date-picker-weekdays">
+                <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+            </div>
+            <div class="date-picker-days" id="dateDays"></div>
+            <div class="date-picker-quick">
+                <button class="date-picker-quick-btn" data-quick="today">
+                    <i class="ph ph-calendar-blank" style="font-size: 18px;"></i> Today
+                </button>
+                <button class="date-picker-quick-btn" data-quick="tomorrow">
+                    <i class="ph ph-sun" style="font-size: 18px;"></i> Tomorrow
+                </button>
+                <button class="date-picker-quick-btn" data-quick="nextweek">
+                    <i class="ph ph-calendar" style="font-size: 18px;"></i> Next Week
+                </button>
+            </div>
+            <div class="date-picker-actions">
+                <button class="date-picker-cancel" id="datePickerCancel">Cancel</button>
+                <button class="date-picker-done" id="datePickerDone">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Panel -->
+    <div class="settings-backdrop" id="settingsBackdrop"></div>
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-header">
+            <span class="settings-title">Settings</span>
+            <button class="settings-close" id="settingsClose">
+                <i class="ph ph-x" style="font-size: 20px;"></i>
+            </button>
+        </div>
+
+        <div class="settings-group">
+            <div class="settings-label">Sync</div>
+            <div class="form-group">
+                <div class="sync-id-group">
+                    <input type="text" class="form-input" id="syncIdInput" placeholder="Enter Sync ID">
+                    <button id="syncConnectBtn">Connect</button>
+                </div>
+            </div>
+            <button class="sync-now-btn" id="syncBtn"
+                style="width: 100%; margin-top: 8px; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: #f5f5f5; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="ph ph-arrows-clockwise" style="font-size: 16px;"></i> Sync Now
+            </button>
+            <div class="sync-status-display" id="syncIndicator"
+                style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; font-size: 0.85em; opacity: 0.7;">
+                <i class="ph ph-cloud-slash" style="font-size: 14px;"></i>
+                <span id="syncText">Not synced</span>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <div class="settings-label">Appearance</div>
+            <div class="settings-row">
+                <span>Light Mode</span>
+                <label class="theme-switch">
+                    <input type="checkbox" id="themeToggle">
+                    <span class="theme-slider"></span>
+                </label>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Install Banner -->
+    <div class="install-banner" id="installBanner">
+        <div class="install-banner-text">
+            <strong>Add to Home Screen</strong>
+            <span>Quick access like an app</span>
+        </div>
+        <button id="installBtn">Install</button>
+        <button class="close-banner" id="closeBanner">
+            <i class="ph ph-x" style="font-size: 18px;"></i>
+        </button>
+    </div>
+
+    <script type="module">
+        // --- Firebase Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+        import {
+            getFirestore, doc, setDoc, collection, getDocs, deleteDoc, writeBatch
+        } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+
+        // --- Firebase Config ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4oXzllt-5dk-TLG_wAhXggJ7scY-VwtM",
+            authDomain: "gametimeline-895d9.firebaseapp.com",
+            projectId: "gametimeline-895d9",
+            storageBucket: "gametimeline-895d9.firebasestorage.app",
+            messagingSenderId: "855161361770",
+            appId: "1:855161361770:web:9b0fee2a637df3d35c0113"
+        };
+
+        // --- Constants ---
+        const STORAGE_KEYS = {
+            SYNC_ID: 'tasks_sync_id',
+            TASKS: 'tasks_local_data',
+            LAST_SYNC: 'tasks_last_sync',
+            THEME: 'tasks_theme'
+        };
+        const SYNC_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours in ms
+
+        // --- Global State ---
+        let db = null;
+        let currentSyncId = null;
+        let tasksData = [];
+        let editingTaskId = null;
+        let deferredPrompt = null;
+        // Date picker state
+        let datePickerMonth = new Date().getMonth();
+        let datePickerYear = new Date().getFullYear();
+        let selectedDate = null;
+
+        // --- DOM Elements ---
+        const elements = {
+            activeTaskList: document.getElementById('activeTaskList'),
+            completedTaskList: document.getElementById('completedTaskList'),
+            activeCount: document.getElementById('activeCount'),
+            completedCount: document.getElementById('completedCount'),
+            activeSection: document.getElementById('activeSection'),
+            completedSection: document.getElementById('completedSection'),
+            activeHeader: document.getElementById('activeHeader'),
+            completedHeader: document.getElementById('completedHeader'),
+            emptyState: document.getElementById('emptyState'),
+            loadingState: document.getElementById('loadingState'),
+
+            syncIndicator: document.getElementById('syncIndicator'),
+            syncText: document.getElementById('syncText'),
+            syncBtn: document.getElementById('syncBtn'),
+
+            fabAdd: document.getElementById('fabAdd'),
+            taskModal: document.getElementById('taskModal'),
+            modalTitle: document.getElementById('modalTitle'),
+            modalClose: document.getElementById('modalClose'),
+            taskForm: document.getElementById('taskForm'),
+            taskTitleInput: document.getElementById('taskTitleInput'),
+            taskDueInput: document.getElementById('taskDueInput'),
+            datePickerBtn: document.getElementById('datePickerBtn'),
+            dueDateDisplay: document.getElementById('dueDateDisplay'),
+            dueDateText: document.getElementById('dueDateText'),
+            clearDateBtn: document.getElementById('clearDateBtn'),
+            subtasksContainer: document.getElementById('subtasksContainer'),
+            addSubtaskBtn: document.getElementById('addSubtaskBtn'),
+            cancelBtn: document.getElementById('cancelBtn'),
+            deleteTaskBtn: document.getElementById('deleteTaskBtn'),
+            saveBtn: document.getElementById('saveBtn'),
+
+            settingsBtn: document.getElementById('settingsBtn'),
+            settingsPanel: document.getElementById('settingsPanel'),
+            settingsBackdrop: document.getElementById('settingsBackdrop'),
+            settingsClose: document.getElementById('settingsClose'),
+            syncIdInput: document.getElementById('syncIdInput'),
+            syncConnectBtn: document.getElementById('syncConnectBtn'),
+            themeToggle: document.getElementById('themeToggle'),
+
+            installBanner: document.getElementById('installBanner'),
+            installBtn: document.getElementById('installBtn'),
+            closeBanner: document.getElementById('closeBanner'),
+
+            // Custom Date Picker
+            datePickerOverlay: document.getElementById('datePickerOverlay'),
+            dateMonthYear: document.getElementById('dateMonthYear'),
+            dateDays: document.getElementById('dateDays'),
+            datePrevMonth: document.getElementById('datePrevMonth'),
+            dateNextMonth: document.getElementById('dateNextMonth'),
+            datePickerCancel: document.getElementById('datePickerCancel'),
+            datePickerDone: document.getElementById('datePickerDone')
+        };
+
+        // --- Initialize ---
+        async function init() {
+            loadTheme();
+            loadLocalData();
+            renderTasks();
+            setupEventListeners();
+
+            // Initialize Firebase
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                const auth = getAuth(app);
+                await signInAnonymously(auth);
+                console.log("Firebase connected");
+
+                // Auto-connect if we have a saved sync ID
+                const savedSyncId = localStorage.getItem(STORAGE_KEYS.SYNC_ID);
+                if (savedSyncId) {
+                    elements.syncIdInput.value = savedSyncId;
+                    currentSyncId = savedSyncId;
+
+                    // Check if we need to sync (12 hour interval or first load)
+                    const lastSync = parseInt(localStorage.getItem(STORAGE_KEYS.LAST_SYNC) || '0');
+                    const now = Date.now();
+                    if (now - lastSync > SYNC_INTERVAL) {
+                        await syncWithFirebase();
+                    } else {
+                        updateSyncIndicator('cached');
+                    }
+                }
+            } catch (err) {
+                console.error("Firebase init error:", err);
+                updateSyncIndicator('error');
+            }
+
+            elements.loadingState.style.display = 'none';
+        }
+
+        // --- Theme ---
+        function loadTheme() {
+            const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME);
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-mode');
+                elements.themeToggle.checked = true;
+            }
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('light-mode');
+            const isLight = document.body.classList.contains('light-mode');
+            localStorage.setItem(STORAGE_KEYS.THEME, isLight ? 'light' : 'dark');
+        }
+
+        // --- Local Data ---
+        function loadLocalData() {
+            const saved = localStorage.getItem(STORAGE_KEYS.TASKS);
+            if (saved) {
+                try {
+                    tasksData = JSON.parse(saved);
+                } catch (e) {
+                    tasksData = [];
+                }
+            }
+        }
+
+        function saveLocalData() {
+            localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasksData));
+        }
+
+        // --- Sync Functions ---
+        function updateSyncIndicator(status) {
+            const indicator = elements.syncIndicator;
+            const text = elements.syncText;
+
+            switch (status) {
+                case 'syncing':
+                    indicator.className = 'sync-indicator syncing';
+                    indicator.querySelector('i').className = 'ph ph-arrows-clockwise';
+                    text.textContent = 'Syncing...';
+                    break;
+                case 'synced':
+                    indicator.className = 'sync-indicator syncing';
+                    indicator.querySelector('i').className = 'ph ph-cloud-check';
+                    text.textContent = 'Synced';
+                    break;
+                case 'cached':
+                    const lastSync = parseInt(localStorage.getItem(STORAGE_KEYS.LAST_SYNC) || '0');
+                    const ago = getTimeAgo(lastSync);
+                    indicator.className = 'sync-indicator';
+                    indicator.querySelector('i').className = 'ph ph-cloud';
+                    text.textContent = ago;
+                    break;
+                case 'error':
+                    indicator.className = 'sync-indicator';
+                    indicator.querySelector('i').className = 'ph ph-cloud-slash';
+                    text.textContent = 'Sync error';
+                    break;
+                default:
+                    indicator.className = 'sync-indicator';
+                    indicator.querySelector('i').className = 'ph ph-cloud-slash';
+                    text.textContent = 'Not synced';
+            }
+        }
+
+        function getTimeAgo(timestamp) {
+            if (!timestamp) return 'Never';
+            const diff = Date.now() - timestamp;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+
+            if (minutes < 1) return 'Just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            return 'Over a day ago';
+        }
+
+        async function syncWithFirebase() {
+            if (!db || !currentSyncId) {
+                updateSyncIndicator('offline');
+                return;
+            }
+
+            updateSyncIndicator('syncing');
+
+            try {
+                // Fetch from Firebase
+                const tasksRef = collection(db, "task_rooms", currentSyncId, "tasks");
+                const snapshot = await getDocs(tasksRef);
+
+                const remoteTasks = [];
+                snapshot.forEach((doc) => {
+                    remoteTasks.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Merge strategy: Use the most recently updated version
+                const mergedTasks = mergeTasks(tasksData, remoteTasks);
+                tasksData = mergedTasks;
+
+                // Push merged data back to Firebase
+                const batch = writeBatch(db);
+
+                // Delete all existing and rewrite
+                for (const task of remoteTasks) {
+                    const taskRef = doc(db, "task_rooms", currentSyncId, "tasks", task.id);
+                    batch.delete(taskRef);
+                }
+
+                for (const task of tasksData) {
+                    const taskRef = doc(db, "task_rooms", currentSyncId, "tasks", task.id);
+                    batch.set(taskRef, task);
+                }
+
+                await batch.commit();
+
+                // Update local storage
+                saveLocalData();
+                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
+
+                renderTasks();
+                updateSyncIndicator('synced');
+
+                // Reset to cached status after 3 seconds
+                setTimeout(() => updateSyncIndicator('cached'), 3000);
+
+            } catch (err) {
+                console.error("Sync error:", err);
+                updateSyncIndicator('error');
+            }
+        }
+
+        function mergeTasks(local, remote) {
+            const merged = new Map();
+
+            // Add all local tasks
+            for (const task of local) {
+                merged.set(task.id, task);
+            }
+
+            // Merge with remote, keeping newer versions
+            for (const task of remote) {
+                const existing = merged.get(task.id);
+                if (!existing || (task.updatedAt > existing.updatedAt)) {
+                    merged.set(task.id, task);
+                }
+            }
+
+            return Array.from(merged.values());
+        }
+
+        async function connectSync() {
+            const syncId = elements.syncIdInput.value.trim();
+            if (!syncId) return;
+
+            currentSyncId = syncId;
+            localStorage.setItem(STORAGE_KEYS.SYNC_ID, syncId);
+
+            await syncWithFirebase();
+            closeSettings();
+        }
+
+        // --- Task CRUD ---
+        function generateId() {
+            return 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+
+        function addTask(title, dueDate, subtasks) {
+            const task = {
+                id: generateId(),
+                title: title.trim(),
+                dueDate: dueDate || null,
+                subtasks: subtasks || [],
+                completed: false,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                order: tasksData.length
+            };
+
+            tasksData.push(task);
+            saveLocalData();
+            renderTasks();
+
+            // Sync if connected
+            if (currentSyncId) {
+                saveTaskToFirebase(task);
+            }
+        }
+
+        function updateTask(taskId, updates) {
+            const index = tasksData.findIndex(t => t.id === taskId);
+            if (index === -1) return;
+
+            tasksData[index] = {
+                ...tasksData[index],
+                ...updates,
+                updatedAt: Date.now()
+            };
+
+            saveLocalData();
+            renderTasks();
+
+            // Sync if connected
+            if (currentSyncId) {
+                saveTaskToFirebase(tasksData[index]);
+            }
+        }
+
+        function deleteTask(taskId) {
+            tasksData = tasksData.filter(t => t.id !== taskId);
+            saveLocalData();
+            renderTasks();
+
+            // Sync if connected
+            if (currentSyncId) {
+                deleteTaskFromFirebase(taskId);
+            }
+        }
+
+        function toggleTaskComplete(taskId) {
+            const task = tasksData.find(t => t.id === taskId);
+            if (!task) return;
+
+            updateTask(taskId, { completed: !task.completed });
+        }
+
+        function toggleSubtaskComplete(taskId, subtaskIndex) {
+            const task = tasksData.find(t => t.id === taskId);
+            if (!task || !task.subtasks[subtaskIndex]) return;
+
+            const subtasks = [...task.subtasks];
+            subtasks[subtaskIndex] = {
+                ...subtasks[subtaskIndex],
+                completed: !subtasks[subtaskIndex].completed
+            };
+
+            updateTask(taskId, { subtasks });
+        }
+
+        async function saveTaskToFirebase(task) {
+            if (!db || !currentSyncId) return;
+
+            try {
+                await setDoc(doc(db, "task_rooms", currentSyncId, "tasks", task.id), task);
+                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
+            } catch (err) {
+                console.error("Save task error:", err);
+            }
+        }
+
+        async function deleteTaskFromFirebase(taskId) {
+            if (!db || !currentSyncId) return;
+
+            try {
+                await deleteDoc(doc(db, "task_rooms", currentSyncId, "tasks", taskId));
+                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
+            } catch (err) {
+                console.error("Delete task error:", err);
+            }
+        }
+
+        // --- Render ---
+        function renderTasks() {
+            const activeTasks = tasksData.filter(t => !t.completed).sort((a, b) => {
+                // Sort by due date first, then by order
+                if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
+                if (a.dueDate) return -1;
+                if (b.dueDate) return 1;
+                return a.order - b.order;
+            });
+
+            const completedTasks = tasksData.filter(t => t.completed).sort((a, b) => b.updatedAt - a.updatedAt);
+
+            // Update counts
+            elements.activeCount.textContent = activeTasks.length;
+            elements.completedCount.textContent = completedTasks.length;
+
+            // Show/hide sections
+            elements.completedSection.style.display = completedTasks.length > 0 ? 'block' : 'none';
+            elements.emptyState.style.display = tasksData.length === 0 ? 'block' : 'none';
+
+            // Render active tasks
+            elements.activeTaskList.innerHTML = activeTasks.map(task => renderTaskCard(task)).join('');
+
+            // Render completed tasks
+            elements.completedTaskList.innerHTML = completedTasks.map(task => renderTaskCard(task)).join('');
+
+            // Add event listeners
+            setupTaskEventListeners();
+        }
+
+        function renderTaskCard(task) {
+            const dueInfo = getDueInfo(task.dueDate);
+            const subtasksHtml = task.subtasks && task.subtasks.length > 0
+                ? `<div class="subtask-list">
+                    ${task.subtasks.map((st, i) => `
+                        <div class="subtask-item ${st.completed ? 'completed' : ''}" data-task-id="${task.id}" data-subtask-index="${i}">
+                            <div class="subtask-checkbox ${st.completed ? 'checked' : ''}">
+                                ${st.completed ? '<i class="ph ph-check" style="font-size: 12px;"></i>' : ''}
+                            </div>
+                            <span class="subtask-text">${escapeHtml(st.title)}</span>
+                        </div>
+                    `).join('')}
+                   </div>`
+                : '';
+
+            return `
+                <div class="task-card ${task.completed ? 'completed' : ''}" data-task-id="${task.id}">
+                    <div class="task-main">
+                        <div class="task-checkbox ${task.completed ? 'checked' : ''}" data-task-id="${task.id}">
+                            ${task.completed ? '<i class="ph ph-check" style="font-size: 14px;"></i>' : ''}
+                        </div>
+                        <div class="task-content">
+                            <div class="task-title">${escapeHtml(task.title)}</div>
+                            ${task.dueDate || (task.subtasks && task.subtasks.length > 0) ? `
+                                <div class="task-meta">
+                                    ${task.dueDate ? `<span class="task-due ${dueInfo.class}">
+                                        <i class="ph ph-calendar" style="font-size: 12px;"></i>
+                                        ${dueInfo.text}
+                                    </span>` : ''}
+                                    ${task.subtasks && task.subtasks.length > 0 ? `
+                                        <span>${task.subtasks.filter(s => s.completed).length}/${task.subtasks.length} subtasks</span>
+                                    ` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    ${subtasksHtml}
+                    <div class="task-actions">
+                        <button class="task-action-btn edit-btn" data-task-id="${task.id}">
+                            <i class="ph ph-pencil" style="font-size: 14px;"></i> Edit
+                        </button>
+                        <button class="task-action-btn delete delete-btn" data-task-id="${task.id}">
+                            <i class="ph ph-trash" style="font-size: 14px;"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getDueInfo(dueDate) {
+            if (!dueDate) return { text: '', class: '' };
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const due = new Date(dueDate);
+            due.setHours(0, 0, 0, 0);
+
+            const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 0) {
+                return { text: `${Math.abs(diffDays)}d overdue`, class: 'overdue' };
+            } else if (diffDays === 0) {
+                return { text: 'Today', class: 'today' };
+            } else if (diffDays === 1) {
+                return { text: 'Tomorrow', class: '' };
+            } else if (diffDays <= 7) {
+                return { text: `In ${diffDays} days`, class: '' };
+            } else {
+                return { text: formatDate(dueDate), class: '' };
+            }
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // --- Event Listeners ---
+        function setupEventListeners() {
+            // FAB
+            elements.fabAdd.addEventListener('click', () => openTaskModal());
+
+            // Modal
+            elements.modalClose.addEventListener('click', closeTaskModal);
+            elements.cancelBtn.addEventListener('click', closeTaskModal);
+            elements.taskModal.addEventListener('click', (e) => {
+                if (e.target === elements.taskModal) closeTaskModal();
+            });
+
+            // Form
+            elements.taskForm.addEventListener('submit', handleTaskSubmit);
+            elements.addSubtaskBtn.addEventListener('click', () => addSubtaskInput());
+            elements.deleteTaskBtn.addEventListener('click', handleDeleteTask);
+
+            // Date Picker
+            elements.datePickerBtn.addEventListener('click', openDatePicker);
+
+            elements.clearDateBtn.addEventListener('click', () => {
+                elements.taskDueInput.value = '';
+                updateDateDisplay();
+            });
+
+            // Custom Date Picker Modal Events
+            elements.datePrevMonth.addEventListener('click', () => {
+                datePickerMonth--;
+                if (datePickerMonth < 0) {
+                    datePickerMonth = 11;
+                    datePickerYear--;
+                }
+                renderCalendar();
+            });
+
+            elements.dateNextMonth.addEventListener('click', () => {
+                datePickerMonth++;
+                if (datePickerMonth > 11) {
+                    datePickerMonth = 0;
+                    datePickerYear++;
+                }
+                renderCalendar();
+            });
+
+            elements.datePickerCancel.addEventListener('click', closeDatePicker);
+            elements.datePickerDone.addEventListener('click', () => {
+                if (selectedDate) {
+                    const year = selectedDate.getFullYear();
+                    const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const day = String(selectedDate.getDate()).padStart(2, '0');
+                    elements.taskDueInput.value = `${year}-${month}-${day}`;
+                    updateDateDisplay();
+                }
+                closeDatePicker();
+            });
+
+            elements.datePickerOverlay.addEventListener('click', (e) => {
+                if (e.target === elements.datePickerOverlay) closeDatePicker();
+            });
+
+            // Quick date buttons
+            document.querySelectorAll('.date-picker-quick-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const quick = btn.dataset.quick;
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+
+                    if (quick === 'today') {
+                        selectedDate = today;
+                    } else if (quick === 'tomorrow') {
+                        selectedDate = new Date(today);
+                        selectedDate.setDate(selectedDate.getDate() + 1);
+                    } else if (quick === 'nextweek') {
+                        selectedDate = new Date(today);
+                        selectedDate.setDate(selectedDate.getDate() + 7);
+                    }
+
+                    datePickerMonth = selectedDate.getMonth();
+                    datePickerYear = selectedDate.getFullYear();
+                    renderCalendar();
+                });
+            });
+
+            // Settings
+            elements.settingsBtn.addEventListener('click', openSettings);
+            elements.settingsClose.addEventListener('click', closeSettings);
+            elements.settingsBackdrop.addEventListener('click', closeSettings);
+            elements.themeToggle.addEventListener('change', toggleTheme);
+            elements.syncConnectBtn.addEventListener('click', connectSync);
+
+            // Sync button
+            elements.syncBtn.addEventListener('click', () => {
+                if (currentSyncId) {
+                    syncWithFirebase();
+                } else {
+                    openSettings();
+                }
+            });
+
+            // Section toggles
+            elements.activeHeader.addEventListener('click', () => toggleSection('active'));
+            elements.completedHeader.addEventListener('click', () => toggleSection('completed'));
+
+            // Install banner
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                elements.installBanner.classList.add('show');
+            });
+
+            elements.installBtn.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const result = await deferredPrompt.userChoice;
+                    deferredPrompt = null;
+                    elements.installBanner.classList.remove('show');
+                }
+            });
+
+            elements.closeBanner.addEventListener('click', () => {
+                elements.installBanner.classList.remove('show');
+            });
+
+            // Sync ID input enter key
+            elements.syncIdInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    connectSync();
+                }
+            });
+        }
+
+        function setupTaskEventListeners() {
+            // Task checkboxes
+            document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const taskId = checkbox.dataset.taskId;
+                    toggleTaskComplete(taskId);
+                });
+            });
+
+            // Subtask checkboxes
+            document.querySelectorAll('.subtask-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const taskId = item.dataset.taskId;
+                    const index = parseInt(item.dataset.subtaskIndex);
+                    toggleSubtaskComplete(taskId, index);
+                });
+            });
+
+            // Edit buttons
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const taskId = btn.dataset.taskId;
+                    openTaskModal(taskId);
+                });
+            });
+
+            // Delete buttons
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const taskId = btn.dataset.taskId;
+                    if (confirm('Delete this task?')) {
+                        deleteTask(taskId);
+                    }
+                });
+            });
+        }
+
+        function toggleSection(section) {
+            if (section === 'active') {
+                elements.activeHeader.classList.toggle('collapsed');
+                elements.activeTaskList.classList.toggle('collapsed');
+            } else {
+                elements.completedHeader.classList.toggle('collapsed');
+                elements.completedTaskList.classList.toggle('collapsed');
+            }
+        }
+
+        // --- Modal Functions ---
+        function openTaskModal(taskId = null) {
+            editingTaskId = taskId;
+            elements.subtasksContainer.innerHTML = '';
+
+            if (taskId) {
+                // Edit mode
+                const task = tasksData.find(t => t.id === taskId);
+                if (!task) return;
+
+                elements.modalTitle.textContent = 'Edit Task';
+                elements.taskTitleInput.value = task.title;
+                elements.taskDueInput.value = task.dueDate || '';
+                elements.deleteTaskBtn.style.display = 'block';
+
+                // Populate subtasks
+                if (task.subtasks) {
+                    task.subtasks.forEach(st => addSubtaskInput(st.title));
+                }
+            } else {
+                // New task mode
+                elements.modalTitle.textContent = 'New Task';
+                elements.taskTitleInput.value = '';
+                elements.taskDueInput.value = '';
+                elements.deleteTaskBtn.style.display = 'none';
+            }
+
+            updateDateDisplay();
+            elements.taskModal.classList.add('active');
+            elements.taskTitleInput.focus();
+        }
+
+        function updateDateDisplay() {
+            const dateValue = elements.taskDueInput.value;
+            if (dateValue) {
+                const date = new Date(dateValue);
+                const formatted = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                elements.dueDateText.textContent = formatted;
+                elements.dueDateDisplay.style.display = 'inline-flex';
+                elements.datePickerBtn.classList.add('has-date');
+            } else {
+                elements.dueDateDisplay.style.display = 'none';
+                elements.datePickerBtn.classList.remove('has-date');
+            }
+        }
+
+        // --- Custom Date Picker Functions ---
+        function openDatePicker() {
+            // Initialize with current value or today
+            if (elements.taskDueInput.value) {
+                selectedDate = new Date(elements.taskDueInput.value);
+            } else {
+                selectedDate = null;
+            }
+            const initDate = selectedDate || new Date();
+            datePickerMonth = initDate.getMonth();
+            datePickerYear = initDate.getFullYear();
+
+            renderCalendar();
+            elements.datePickerOverlay.classList.add('active');
+        }
+
+        function closeDatePicker() {
+            elements.datePickerOverlay.classList.remove('active');
+        }
+
+        function renderCalendar() {
+            const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+
+            elements.dateMonthYear.textContent = `${months[datePickerMonth]} ${datePickerYear}`;
+
+            const firstDay = new Date(datePickerYear, datePickerMonth, 1);
+            const lastDay = new Date(datePickerYear, datePickerMonth + 1, 0);
+            const startDay = (firstDay.getDay() + 6) % 7; // Monday = 0
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let html = '';
+
+            // Empty days before start
+            for (let i = 0; i < startDay; i++) {
+                html += '<button class="date-picker-day empty" disabled></button>';
+            }
+
+            // Days of month
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const date = new Date(datePickerYear, datePickerMonth, day);
+                date.setHours(0, 0, 0, 0);
+
+                let classes = 'date-picker-day';
+                if (date.getTime() === today.getTime()) classes += ' today';
+                if (selectedDate && date.getTime() === selectedDate.getTime()) classes += ' selected';
+
+                html += `<button class="${classes}" data-day="${day}">${day}</button>`;
+            }
+
+            elements.dateDays.innerHTML = html;
+
+            // Add click listeners to days
+            elements.dateDays.querySelectorAll('.date-picker-day:not(.empty)').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const day = parseInt(btn.dataset.day);
+                    selectedDate = new Date(datePickerYear, datePickerMonth, day);
+                    renderCalendar();
+                });
+            });
+        }
+
+        function closeTaskModal() {
+            elements.taskModal.classList.remove('active');
+            editingTaskId = null;
+        }
+
+        function addSubtaskInput(value = '') {
+            const div = document.createElement('div');
+            div.className = 'subtask-input-row';
+            div.style.cssText = 'display: flex; gap: 8px; margin-bottom: 8px;';
+            div.innerHTML = `
+                <input type="text" class="form-input subtask-input" placeholder="Subtask" value="${escapeHtml(value)}" style="flex: 1;">
+                <button type="button" class="remove-subtask-btn" style="padding: 10px; background: transparent; border: none; color: #ff6b6b; cursor: pointer;">
+                    <i class="ph ph-x" style="font-size: 18px;"></i>
+                </button>
+            `;
+
+            div.querySelector('.remove-subtask-btn').addEventListener('click', () => div.remove());
+            elements.subtasksContainer.appendChild(div);
+
+            if (!value) {
+                div.querySelector('.subtask-input').focus();
+            }
+        }
+
+        function handleTaskSubmit(e) {
+            e.preventDefault();
+
+            const title = elements.taskTitleInput.value.trim();
+            if (!title) return;
+
+            const dueDate = elements.taskDueInput.value || null;
+
+            // Collect subtasks
+            const subtaskInputs = elements.subtasksContainer.querySelectorAll('.subtask-input');
+            const subtasks = Array.from(subtaskInputs)
+                .map(input => input.value.trim())
+                .filter(text => text)
+                .map(title => ({ title, completed: false }));
+
+            if (editingTaskId) {
+                // Update existing task, preserve subtask completion status
+                const existingTask = tasksData.find(t => t.id === editingTaskId);
+                const mergedSubtasks = subtasks.map((st, i) => {
+                    const existing = existingTask?.subtasks?.[i];
+                    if (existing && existing.title === st.title) {
+                        return existing; // Preserve completion status
+                    }
+                    return st;
+                });
+
+                updateTask(editingTaskId, { title, dueDate, subtasks: mergedSubtasks });
+            } else {
+                addTask(title, dueDate, subtasks);
+            }
+
+            closeTaskModal();
+        }
+
+        function handleDeleteTask() {
+            if (editingTaskId && confirm('Delete this task?')) {
+                deleteTask(editingTaskId);
+                closeTaskModal();
+            }
+        }
+
+        // --- Settings Functions ---
+        function openSettings() {
+            elements.settingsPanel.classList.add('active');
+            elements.settingsBackdrop.classList.add('active');
+        }
+
+        function closeSettings() {
+            elements.settingsPanel.classList.remove('active');
+            elements.settingsBackdrop.classList.remove('active');
+        }
+
+        // --- Service Worker Registration ---
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(err => {
+                console.log('Service worker registration failed:', err);
+            });
+        }
+
+        // --- Start ---
+        init();
+    </script>
+</body>
+
+</html>
