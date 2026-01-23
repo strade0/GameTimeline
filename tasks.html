@@ -1393,7 +1393,7 @@
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
         import {
-            getFirestore, doc, setDoc, collection, getDocs, deleteDoc, writeBatch
+            getFirestore, doc, setDoc, collection, getDocs, deleteDoc, writeBatch, onSnapshot
         } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 
@@ -1422,6 +1422,7 @@
         let tasksData = [];
         let editingTaskId = null;
         let deferredPrompt = null;
+        let unsubscribe = null;
         // Date picker state
         let datePickerMonth = new Date().getMonth();
         let datePickerYear = new Date().getFullYear();
@@ -1502,16 +1503,7 @@
                 const savedSyncId = localStorage.getItem(STORAGE_KEYS.SYNC_ID);
                 if (savedSyncId) {
                     elements.syncIdInput.value = savedSyncId;
-                    currentSyncId = savedSyncId;
-
-                    // Check if we need to sync (12 hour interval or first load)
-                    const lastSync = parseInt(localStorage.getItem(STORAGE_KEYS.LAST_SYNC) || '0');
-                    const now = Date.now();
-                    if (now - lastSync > SYNC_INTERVAL) {
-                        await syncWithFirebase();
-                    } else {
-                        updateSyncIndicator('cached');
-                    }
+                    connectSync();
                 }
             } catch (err) {
                 console.error("Firebase init error:", err);
@@ -1599,57 +1591,31 @@
             return 'Over a day ago';
         }
 
-        async function syncWithFirebase() {
-            if (!db || !currentSyncId) {
-                updateSyncIndicator('offline');
-                return;
-            }
-
-            updateSyncIndicator('syncing');
-
+        async function saveTaskToFirebase(task) {
+            if (!db || !currentSyncId) return;
             try {
-                // Fetch from Firebase
-                const tasksRef = collection(db, "task_rooms", currentSyncId, "tasks");
-                const snapshot = await getDocs(tasksRef);
-
-                const remoteTasks = [];
-                snapshot.forEach((doc) => {
-                    remoteTasks.push({ id: doc.id, ...doc.data() });
-                });
-
-                // Merge strategy: Use the most recently updated version
-                const mergedTasks = mergeTasks(tasksData, remoteTasks);
-                tasksData = mergedTasks;
-
-                // Push merged data back to Firebase
-                const batch = writeBatch(db);
-
-                // Delete all existing and rewrite
-                for (const task of remoteTasks) {
-                    const taskRef = doc(db, "task_rooms", currentSyncId, "tasks", task.id);
-                    batch.delete(taskRef);
-                }
-
-                for (const task of tasksData) {
-                    const taskRef = doc(db, "task_rooms", currentSyncId, "tasks", task.id);
-                    batch.set(taskRef, task);
-                }
-
-                await batch.commit();
-
-                // Update local storage
-                saveLocalData();
-                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
-
-                renderTasks();
-                updateSyncIndicator('synced');
-
-                // Reset to cached status after 3 seconds
-                setTimeout(() => updateSyncIndicator('cached'), 3000);
-
+                const taskRef = doc(db, "task_rooms", currentSyncId, "tasks", task.id);
+                await setDoc(taskRef, task);
             } catch (err) {
-                console.error("Sync error:", err);
-                updateSyncIndicator('error');
+                console.error("Error saving task:", err);
+            }
+        }
+
+        async function deleteTaskFromFirebase(taskId) {
+            if (!db || !currentSyncId) return;
+            try {
+                const taskRef = doc(db, "task_rooms", currentSyncId, "tasks", taskId);
+                await deleteDoc(taskRef);
+            } catch (err) {
+                console.error("Error deleting task:", err);
+            }
+        }
+
+        // Deprecated manual sync but kept for initial load check if needed (or we can just remove)
+        async function syncWithFirebase() {
+            // In real-time mode, we just ensure we are connected
+            if (currentSyncId && !unsubscribe) {
+                connectSync();
             }
         }
 
@@ -1674,13 +1640,57 @@
 
         async function connectSync() {
             const syncId = elements.syncIdInput.value.trim();
-            if (!syncId) return;
+            if (!syncId) {
+                console.log('No sync ID provided');
+                return;
+            }
+
+            console.log('Connecting with sync ID:', syncId);
+
+            if (!db) {
+                console.error('Firebase database not initialized');
+                updateSyncIndicator('error');
+                alert('Firebase not connected. Please refresh the page.');
+                return;
+            }
+
+            // Unsubscribe from previous
+            if (unsubscribe) unsubscribe();
 
             currentSyncId = syncId;
             localStorage.setItem(STORAGE_KEYS.SYNC_ID, syncId);
+            updateSyncIndicator('syncing');
 
-            await syncWithFirebase();
-            closeSettings();
+            try {
+                const tasksCollectionRef = collection(db, "task_rooms", currentSyncId, "tasks");
+
+                unsubscribe = onSnapshot(tasksCollectionRef, (snapshot) => {
+                    const remoteTasks = [];
+                    snapshot.forEach((doc) => {
+                        remoteTasks.push({ id: doc.id, ...doc.data() });
+                    });
+
+                    // Update local data with remote data
+                    tasksData = remoteTasks;
+
+                    // Sort (optional, but good practice if order matters)
+                    // tasksData.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+                    saveLocalData();
+                    renderTasks();
+                    updateSyncIndicator('synced');
+
+                    // Close settings if open? Maybe optional.
+                }, (error) => {
+                    console.error("Sync Error:", error);
+                    updateSyncIndicator('error');
+                });
+
+                closeSettings();
+            } catch (err) {
+                console.error("Connection Error:", err);
+                updateSyncIndicator('error');
+            }
         }
 
         // --- Task CRUD ---
