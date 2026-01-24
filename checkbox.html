@@ -352,6 +352,39 @@
             text-align: center;
             opacity: 0.7;
         }
+
+        /* Mobile: Add padding to prevent cards from touching edges */
+        @media (max-width: 768px) {
+            body {
+                padding: 120px 16px 40px 16px;
+            }
+
+            .container {
+                flex-direction: column;
+                width: 100%;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            .module-card {
+                min-width: unset;
+                width: 100%;
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+
+            .sync-controls {
+                right: 16px;
+            }
+
+            .theme-switch-wrapper {
+                right: 16px;
+            }
+
+            .home-btn {
+                left: 16px;
+            }
+        }
     </style>
 </head>
 
