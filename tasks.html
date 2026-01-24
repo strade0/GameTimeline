@@ -1715,15 +1715,15 @@
                     return;
                 }
 
-                // Get remote tasks
+                // Use remote data as source of truth for real-time updates
+                // This ensures deletions sync properly (like notes.html)
                 const remoteTasks = [];
                 snapshot.forEach((doc) => {
                     remoteTasks.push({ id: doc.id, ...doc.data() });
                 });
 
-                // MERGE remote with local instead of replacing
-                // This preserves local tasks that don't exist in remote
-                tasksData = mergeTasks(tasksData, remoteTasks);
+                // Replace local with remote - Firebase is the source of truth
+                tasksData = remoteTasks;
                 saveLocalData();
                 renderTasks();
 
@@ -1833,14 +1833,21 @@
                 unsubscribeSync();
             }
 
+            // Clear local tasks when connecting to a NEW sync ID
+            // This prevents editing old data while syncing
+            tasksData = [];
+            saveLocalData();
+
+            // Show loading state
+            elements.activeTaskList.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+            elements.completedSection.style.display = 'none';
+            elements.emptyState.style.display = 'none';
+
             currentSyncId = syncId;
             localStorage.setItem(STORAGE_KEYS.SYNC_ID, syncId);
 
-            // Start real-time sync
+            // Start real-time sync - will populate from Firebase
             startRealtimeSync();
-
-            // Push current local data to Firebase
-            await pushToFirebase();
 
             closeSettings();
         }
