@@ -1449,7 +1449,6 @@
 
             syncIndicator: document.getElementById('syncIndicator'),
             syncText: document.getElementById('syncText'),
-            syncBtn: document.getElementById('syncBtn'),
 
             fabAdd: document.getElementById('fabAdd'),
             taskModal: document.getElementById('taskModal'),
@@ -1512,6 +1511,12 @@
                 if (savedSyncId) {
                     elements.syncIdInput.value = savedSyncId;
                     currentSyncId = savedSyncId;
+
+                    // Push local changes first (for any offline edits)
+                    if (tasksData.length > 0) {
+                        await pushToFirebase();
+                    }
+
                     // Start real-time sync listener
                     startRealtimeSync();
                 }
@@ -1712,13 +1717,14 @@
                     return;
                 }
 
+                // Use remote data as source of truth
                 const remoteTasks = [];
                 snapshot.forEach((doc) => {
                     remoteTasks.push({ id: doc.id, ...doc.data() });
                 });
 
-                // Merge with local data
-                tasksData = mergeTasks(tasksData, remoteTasks);
+                // Replace local data with remote data
+                tasksData = remoteTasks;
                 saveLocalData();
                 renderTasks();
 
