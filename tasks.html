@@ -7,7 +7,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#232323">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" type="image/png" href="favicon.png">
     <link rel="apple-touch-icon" href="favicon.png">
@@ -1353,10 +1353,6 @@
                     <button id="syncConnectBtn">Connect</button>
                 </div>
             </div>
-            <button class="sync-now-btn" id="syncBtn"
-                style="width: 100%; margin-top: 8px; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: #f5f5f5; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                <i class="ph ph-arrows-clockwise" style="font-size: 16px;"></i> Sync Now
-            </button>
             <div class="sync-status-display" id="syncIndicator"
                 style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; font-size: 0.85em; opacity: 0.7;">
                 <i class="ph ph-cloud-slash" style="font-size: 14px;"></i>
@@ -1373,6 +1369,14 @@
                     <span class="theme-slider"></span>
                 </label>
             </div>
+        </div>
+
+        <div class="settings-group" id="installSettingsGroup" style="display: none;">
+            <div class="settings-label">Install</div>
+            <button class="sync-now-btn" id="settingsInstallBtn"
+                style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: #f5f5f5; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="ph ph-download" style="font-size: 16px;"></i> Install App
+            </button>
         </div>
 
     </div>
@@ -1393,7 +1397,7 @@
         // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
         import {
-            getFirestore, doc, setDoc, collection, getDocs, deleteDoc, writeBatch
+            getFirestore, doc, setDoc, collection, getDocs, deleteDoc, writeBatch, onSnapshot
         } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
 
@@ -1412,7 +1416,8 @@
             SYNC_ID: 'tasks_sync_id',
             TASKS: 'tasks_local_data',
             LAST_SYNC: 'tasks_last_sync',
-            THEME: 'tasks_theme'
+            THEME: 'tasks_theme',
+            INSTALL_DISMISSED: 'tasks_install_dismissed'
         };
         const SYNC_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours in ms
 
@@ -1422,6 +1427,8 @@
         let tasksData = [];
         let editingTaskId = null;
         let deferredPrompt = null;
+        let unsubscribeSync = null; // Real-time listener cleanup
+        let isLocalChange = false; // Prevent sync loops
         // Date picker state
         let datePickerMonth = new Date().getMonth();
         let datePickerYear = new Date().getFullYear();
@@ -1472,6 +1479,8 @@
             installBanner: document.getElementById('installBanner'),
             installBtn: document.getElementById('installBtn'),
             closeBanner: document.getElementById('closeBanner'),
+            settingsInstallBtn: document.getElementById('settingsInstallBtn'),
+            installSettingsGroup: document.getElementById('installSettingsGroup'),
 
             // Custom Date Picker
             datePickerOverlay: document.getElementById('datePickerOverlay'),
@@ -1503,15 +1512,8 @@
                 if (savedSyncId) {
                     elements.syncIdInput.value = savedSyncId;
                     currentSyncId = savedSyncId;
-
-                    // Check if we need to sync (12 hour interval or first load)
-                    const lastSync = parseInt(localStorage.getItem(STORAGE_KEYS.LAST_SYNC) || '0');
-                    const now = Date.now();
-                    if (now - lastSync > SYNC_INTERVAL) {
-                        await syncWithFirebase();
-                    } else {
-                        updateSyncIndicator('cached');
-                    }
+                    // Start real-time sync listener
+                    startRealtimeSync();
                 }
             } catch (err) {
                 console.error("Firebase init error:", err);
@@ -1568,12 +1570,22 @@
                     indicator.querySelector('i').className = 'ph ph-cloud-check';
                     text.textContent = 'Synced';
                     break;
+                case 'listening':
+                    indicator.className = 'sync-indicator syncing';
+                    indicator.querySelector('i').className = 'ph ph-broadcast';
+                    text.textContent = 'Live';
+                    break;
                 case 'cached':
                     const lastSync = parseInt(localStorage.getItem(STORAGE_KEYS.LAST_SYNC) || '0');
                     const ago = getTimeAgo(lastSync);
                     indicator.className = 'sync-indicator';
                     indicator.querySelector('i').className = 'ph ph-cloud';
                     text.textContent = ago;
+                    break;
+                case 'permission-error':
+                    indicator.className = 'sync-indicator';
+                    indicator.querySelector('i').className = 'ph ph-warning';
+                    text.textContent = 'Permission denied';
                     break;
                 case 'error':
                     indicator.className = 'sync-indicator';
@@ -1649,7 +1661,12 @@
 
             } catch (err) {
                 console.error("Sync error:", err);
-                updateSyncIndicator('error');
+                // Check for permission errors specifically
+                if (err.code === 'permission-denied' || (err.message && err.message.includes('permission'))) {
+                    updateSyncIndicator('permission-error');
+                } else {
+                    updateSyncIndicator('error');
+                }
             }
         }
 
@@ -1672,14 +1689,104 @@
             return Array.from(merged.values());
         }
 
+        // --- Real-time Sync ---
+        function startRealtimeSync() {
+            if (!db || !currentSyncId) {
+                updateSyncIndicator('offline');
+                return;
+            }
+
+            // Cleanup previous listener if exists
+            if (unsubscribeSync) {
+                unsubscribeSync();
+            }
+
+            updateSyncIndicator('syncing');
+
+            const tasksRef = collection(db, "task_rooms", currentSyncId, "tasks");
+
+            unsubscribeSync = onSnapshot(tasksRef, (snapshot) => {
+                // Skip if this is triggered by our own local change
+                if (isLocalChange) {
+                    isLocalChange = false;
+                    return;
+                }
+
+                const remoteTasks = [];
+                snapshot.forEach((doc) => {
+                    remoteTasks.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Merge with local data
+                tasksData = mergeTasks(tasksData, remoteTasks);
+                saveLocalData();
+                renderTasks();
+
+                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
+                updateSyncIndicator('synced');
+
+                // Reset to listening status after brief synced indicator
+                setTimeout(() => updateSyncIndicator('listening'), 2000);
+            }, (err) => {
+                console.error("Real-time sync error:", err);
+                if (err.code === 'permission-denied' || (err.message && err.message.includes('permission'))) {
+                    updateSyncIndicator('permission-error');
+                } else {
+                    updateSyncIndicator('error');
+                }
+            });
+        }
+
+        // Push local changes to Firebase
+        async function pushToFirebase() {
+            if (!db || !currentSyncId) return;
+
+            isLocalChange = true;
+
+            try {
+                const batch = writeBatch(db);
+
+                // Get current remote tasks to know what to delete
+                const tasksRef = collection(db, "task_rooms", currentSyncId, "tasks");
+                const snapshot = await getDocs(tasksRef);
+
+                // Delete all existing
+                snapshot.forEach((docSnapshot) => {
+                    batch.delete(docSnapshot.ref);
+                });
+
+                // Add all local tasks
+                for (const task of tasksData) {
+                    const taskRef = doc(db, "task_rooms", currentSyncId, "tasks", task.id);
+                    batch.set(taskRef, task);
+                }
+
+                await batch.commit();
+                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
+            } catch (err) {
+                console.error("Push error:", err);
+                isLocalChange = false;
+            }
+        }
+
         async function connectSync() {
             const syncId = elements.syncIdInput.value.trim();
             if (!syncId) return;
 
+            // Cleanup previous listener
+            if (unsubscribeSync) {
+                unsubscribeSync();
+            }
+
             currentSyncId = syncId;
             localStorage.setItem(STORAGE_KEYS.SYNC_ID, syncId);
 
-            await syncWithFirebase();
+            // Start real-time sync
+            startRealtimeSync();
+
+            // Push current local data to Firebase
+            await pushToFirebase();
+
             closeSettings();
         }
 
@@ -1763,22 +1870,26 @@
         async function saveTaskToFirebase(task) {
             if (!db || !currentSyncId) return;
 
+            isLocalChange = true;
             try {
                 await setDoc(doc(db, "task_rooms", currentSyncId, "tasks", task.id), task);
                 localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
             } catch (err) {
                 console.error("Save task error:", err);
+                isLocalChange = false;
             }
         }
 
         async function deleteTaskFromFirebase(taskId) {
             if (!db || !currentSyncId) return;
 
+            isLocalChange = true;
             try {
                 await deleteDoc(doc(db, "task_rooms", currentSyncId, "tasks", taskId));
                 localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
             } catch (err) {
                 console.error("Delete task error:", err);
+                isLocalChange = false;
             }
         }
 
@@ -2002,7 +2113,15 @@
             window.addEventListener('beforeinstallprompt', (e) => {
                 e.preventDefault();
                 deferredPrompt = e;
-                elements.installBanner.classList.add('show');
+                // Only show banner if not previously dismissed
+                const dismissed = localStorage.getItem(STORAGE_KEYS.INSTALL_DISMISSED);
+                if (!dismissed) {
+                    elements.installBanner.classList.add('show');
+                }
+                // Enable the install button in settings
+                if (elements.installSettingsGroup) {
+                    elements.installSettingsGroup.style.display = 'block';
+                }
             });
 
             elements.installBtn.addEventListener('click', async () => {
@@ -2011,12 +2130,35 @@
                     const result = await deferredPrompt.userChoice;
                     deferredPrompt = null;
                     elements.installBanner.classList.remove('show');
+                    // Mark as dismissed so it won't show again
+                    localStorage.setItem(STORAGE_KEYS.INSTALL_DISMISSED, 'true');
+                    // Hide settings install group too
+                    if (elements.installSettingsGroup) {
+                        elements.installSettingsGroup.style.display = 'none';
+                    }
                 }
             });
 
             elements.closeBanner.addEventListener('click', () => {
                 elements.installBanner.classList.remove('show');
+                // Mark as dismissed so it won't show again
+                localStorage.setItem(STORAGE_KEYS.INSTALL_DISMISSED, 'true');
             });
+
+            // Settings install button
+            if (elements.settingsInstallBtn) {
+                elements.settingsInstallBtn.addEventListener('click', async () => {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const result = await deferredPrompt.userChoice;
+                        deferredPrompt = null;
+                        localStorage.setItem(STORAGE_KEYS.INSTALL_DISMISSED, 'true');
+                        if (elements.installSettingsGroup) {
+                            elements.installSettingsGroup.style.display = 'none';
+                        }
+                    }
+                });
+            }
 
             // Sync ID input enter key
             elements.syncIdInput.addEventListener('keypress', (e) => {
