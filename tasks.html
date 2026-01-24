@@ -1512,10 +1512,8 @@
                     elements.syncIdInput.value = savedSyncId;
                     currentSyncId = savedSyncId;
 
-                    // Push local changes first (for any offline edits)
-                    if (tasksData.length > 0) {
-                        await pushToFirebase();
-                    }
+                    // First fetch remote data and merge with local (preserving both)
+                    await mergeAndSyncOnInit();
 
                     // Start real-time sync listener
                     startRealtimeSync();
@@ -1717,14 +1715,15 @@
                     return;
                 }
 
-                // Use remote data as source of truth
+                // Get remote tasks
                 const remoteTasks = [];
                 snapshot.forEach((doc) => {
                     remoteTasks.push({ id: doc.id, ...doc.data() });
                 });
 
-                // Replace local data with remote data
-                tasksData = remoteTasks;
+                // MERGE remote with local instead of replacing
+                // This preserves local tasks that don't exist in remote
+                tasksData = mergeTasks(tasksData, remoteTasks);
                 saveLocalData();
                 renderTasks();
 
@@ -1743,7 +1742,65 @@
             });
         }
 
-        // Push local changes to Firebase
+        // Merge and sync on initialization - fetches remote first, merges, then pushes
+        async function mergeAndSyncOnInit() {
+            if (!db || !currentSyncId) return;
+
+            updateSyncIndicator('syncing');
+
+            try {
+                // First, fetch what's already in Firebase
+                const tasksRef = collection(db, "task_rooms", currentSyncId, "tasks");
+                const snapshot = await getDocs(tasksRef);
+
+                const remoteTasks = [];
+                snapshot.forEach((docSnap) => {
+                    remoteTasks.push({ id: docSnap.id, ...docSnap.data() });
+                });
+
+                console.log(`Init sync: ${tasksData.length} local tasks, ${remoteTasks.length} remote tasks`);
+
+                // Merge local with remote (preserves both, uses newer versions)
+                tasksData = mergeTasks(tasksData, remoteTasks);
+                saveLocalData();
+                renderTasks();
+
+                // Now push the merged result back to Firebase
+                await pushMergedToFirebase();
+
+                console.log(`After merge: ${tasksData.length} total tasks`);
+                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
+                updateSyncIndicator('synced');
+            } catch (err) {
+                console.error("Init merge error:", err);
+                updateSyncIndicator('error');
+            }
+        }
+
+        // Push merged data to Firebase (used after merging)
+        async function pushMergedToFirebase() {
+            if (!db || !currentSyncId) return;
+
+            isLocalChange = true;
+
+            try {
+                const batch = writeBatch(db);
+
+                // Set/update all local tasks (this will create or update)
+                for (const task of tasksData) {
+                    const taskRef = doc(db, "task_rooms", currentSyncId, "tasks", task.id);
+                    batch.set(taskRef, task);
+                }
+
+                await batch.commit();
+                localStorage.setItem(STORAGE_KEYS.LAST_SYNC, Date.now().toString());
+            } catch (err) {
+                console.error("Push merged error:", err);
+                isLocalChange = false;
+            }
+        }
+
+        // Push local changes to Firebase (for single task updates)
         async function pushToFirebase() {
             if (!db || !currentSyncId) return;
 
@@ -1752,16 +1809,8 @@
             try {
                 const batch = writeBatch(db);
 
-                // Get current remote tasks to know what to delete
-                const tasksRef = collection(db, "task_rooms", currentSyncId, "tasks");
-                const snapshot = await getDocs(tasksRef);
-
-                // Delete all existing
-                snapshot.forEach((docSnapshot) => {
-                    batch.delete(docSnapshot.ref);
-                });
-
-                // Add all local tasks
+                // Set/update all local tasks - DO NOT delete remote tasks!
+                // This ensures we only add/update, never accidentally delete
                 for (const task of tasksData) {
                     const taskRef = doc(db, "task_rooms", currentSyncId, "tasks", task.id);
                     batch.set(taskRef, task);
