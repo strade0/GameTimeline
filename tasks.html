@@ -2096,15 +2096,6 @@
             elements.themeToggle.addEventListener('change', toggleTheme);
             elements.syncConnectBtn.addEventListener('click', connectSync);
 
-            // Sync button
-            elements.syncBtn.addEventListener('click', () => {
-                if (currentSyncId) {
-                    syncWithFirebase();
-                } else {
-                    openSettings();
-                }
-            });
-
             // Section toggles
             elements.activeHeader.addEventListener('click', () => toggleSection('active'));
             elements.completedHeader.addEventListener('click', () => toggleSection('completed'));
