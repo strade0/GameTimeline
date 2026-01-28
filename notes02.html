@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta name="robots" content="noindex, nofollow, noimageindex">
+    <meta name="googlebot" content="noindex, nofollow">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <title>Project Notes</title>
+    <!-- Load Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        /* --- Core Styles --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background: linear-gradient(135deg, #232323 0%, #000000 100%);
+            background-attachment: fixed;
+            color: #f5f5f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        body.light-mode {
+            background: linear-gradient(135deg, #f0f0f0 0%, #d5d5d5 100%);
+            color: #1a1a1a;
+        }
+
+        /* Home Button Styling */
+        .home-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #f5f5f5;
+            z-index: 100;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .home-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Light Mode Home Button */
+        body.light-mode .home-btn {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            color: #1a1a1a;
+        }
+
+        body.light-mode .home-btn:hover {
+            background: rgba(255, 255, 255, 1);
+        }
+
+        /* --- Main Container (70vw / 80vh) --- */
+        .notes-container {
+            /* Glassmorphism */
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+
+            width: 70vw;
+            height: 80vh;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        body.light-mode .notes-container {
+            background: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        body.light-mode h1 {
+            border-bottom-color: rgba(0, 0, 0, 0.1);
+        }
+
+        /* --- Notes List Area --- */
+        .notes-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            overflow-x: visible;
+            margin-bottom: 20px;
+            padding: 10px;
+            margin: -10px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            align-content: start;
+        }
+
+        /* Note Card Item */
+        .note-card {
+            position: relative;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+            display: flex;
+            flex-direction: column;
+            height: 140px;
+            border: 1px solid transparent;
+        }
+
+        body.light-mode .note-card {
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .note-card:hover {
+            transform: translateY(-3px);
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        body.light-mode .note-card:hover {
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .note-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.1em;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .note-card p {
+            font-size: 0.85em;
+            opacity: 0.7;
+            margin: 0;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 4;
+            line-clamp: 4;
+            -webkit-box-orient: vertical;
+        }
+
+        .note-card .date {
+            font-size: 0.75em;
+            margin-top: auto;
+            opacity: 0.5;
+            text-align: right;
+            padding-top: 5px;
+        }
+
+        /* Unsaved Draft Card - Warning Yellow Style */
+        .note-card.draft-card {
+            background: rgba(255, 193, 7, 0.15);
+            border: 1px solid rgba(255, 193, 7, 0.4);
+        }
+
+        .note-card.draft-card:hover {
+            background: rgba(255, 193, 7, 0.25);
+            transform: translateY(-3px);
+        }
+
+        body.light-mode .note-card.draft-card {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid rgba(255, 193, 7, 0.5);
+        }
+
+        body.light-mode .note-card.draft-card:hover {
+            background: rgba(255, 193, 7, 0.35);
+        }
+
+        /* --- Add Note Button --- */
+        .add-btn-wrapper {
+            display: flex;
+            justify-content: center;
+        }
+
+        .add-note-btn {
+            background: #68f983;
+            color: #1a1a1a;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1em;
+            cursor: pointer;
+            transition: opacity 0.3s, transform 0.2s;
+            box-shadow: 0 4px 15px rgba(104, 249, 131, 0.3);
+        }
+
+        body.light-mode .add-note-btn {
+            background: #1a1a1a;
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .add-note-btn:hover {
+            opacity: 0.9;
+            transform: scale(1.05);
+        }
+
+        .add-note-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            background: #555;
+        }
+
+
+        /* --- Editor Modal (90vw / 90vh) --- */
+        .editor-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .editor-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .editor-window {
+            width: 90vw;
+            height: 90vh;
+            background: #232323;
+            border-radius: 12px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        body.light-mode .editor-window {
+            background: #f5f5f5;
+            color: #1a1a1a;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .title-input {
+            font-size: 1.5em;
+            font-weight: bold;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            color: inherit;
+            width: 60%;
+            padding: 5px;
+            outline: none;
+        }
+
+        body.light-mode .title-input {
+            border-bottom-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .title-input:focus {
+            border-bottom-color: #68f983;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .editor-actions button {
+            padding: 8px 15px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .btn-save {
+            background: #68f983;
+            color: #1a1a1a;
+        }
+
+        .btn-close {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .btn-delete {
+            background: #ff4d4d;
+            color: white;
+        }
+
+        body.light-mode .btn-save {
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        body.light-mode .btn-close {
+            background: rgba(0, 0, 0, 0.1);
+            color: #1a1a1a;
+        }
+
+        textarea {
+            flex-grow: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border: none;
+            border-radius: 8px;
+            padding: 20px;
+            color: inherit;
+            font-family: inherit;
+            font-size: 1.1em;
+            resize: none;
+            outline: none;
+            line-height: 1.6;
+        }
+
+        body.light-mode textarea {
+            background: rgba(255, 255, 255, 0.5);
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        /* --- Theme Toggle (Copied) --- */
+        .theme-switch-wrapper {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #555;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: #ccc;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(26px);
+            background-color: #333;
+        }
+
+        /* --- Sync Controls (Copied from Checkbox) --- */
+        .sync-controls {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            z-index: 99;
+            width: 200px;
+            transition: background 0.3s ease, border 0.3s ease;
+        }
+
+        body.light-mode .sync-controls {
+            background: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .sync-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: 600;
+            user-select: none;
+            font-size: 0.9em;
+        }
+
+        .collapse-arrow {
+            font-size: 1.1em;
+            transition: transform 0.3s ease;
+        }
+
+        .sync-content {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin-top 0.3s ease-out;
+            max-height: 150px;
+            opacity: 1;
+        }
+
+        .sync-controls.collapsed .sync-content {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+        }
+
+        .sync-controls.collapsed .collapse-arrow {
+            transform: rotate(-90deg);
+        }
+
+        .sync-controls input[type="text"] {
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            outline: none;
+            transition: all 0.3s ease;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 0.9em;
+        }
+
+        .sync-controls button {
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: none;
+            background: #68f983;
+            color: #1a1a1a;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+        }
+
+        .sync-controls button:hover {
+            opacity: 0.8;
+        }
+
+        body.light-mode .sync-controls input[type="text"] {
+            border-color: rgba(0, 0, 0, 0.2);
+            background: rgba(0, 0, 0, 0.05);
+            color: #1a1a1a;
+        }
+
+        body.light-mode .sync-controls button {
+            background: #000;
+            color: #fff;
+        }
+
+        #sync-status {
+            font-size: 12px;
+            text-align: center;
+            opacity: 0.7;
+        }
+
+        /* Loading spinner for list */
+        .loading-msg {
+            width: 100%;
+            text-align: center;
+            padding: 20px;
+            opacity: 0.6;
+        }
+
+        /* --- Hide Button on Card --- */
+        .note-card .hide-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.3);
+            color: rgb(104 249 131);
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            z-index: 10;
+            opacity: 0;
+        }
+
+        .note-card:hover .hide-btn {
+            opacity: 1;
+        }
+
+        .note-card .hide-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        body.light-mode .note-card .hide-btn {
+            color: rgba(0, 0, 0, 0.3);
+        }
+
+        body.light-mode .note-card .hide-btn:hover {
+            color: #000;
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        /* --- Show/Hide Toggle Button (Inside Container) --- */
+        .show-hidden-toggle {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #f5f5f5;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85em;
+            transition: all 0.3s ease;
+            z-index: 10;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .show-hidden-toggle:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        body.light-mode .show-hidden-toggle {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            color: #1a1a1a;
+        }
+
+        body.light-mode .show-hidden-toggle:hover {
+            background: rgba(255, 255, 255, 1);
+        }
+
+        /* Visual cue for hidden notes when shown */
+        .note-card.is-hidden {
+            opacity: 0.6;
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+        }
+
+        body.light-mode .note-card.is-hidden {
+            border: 1px dashed rgba(0, 0, 0, 0.2);
+        }
+
+        /* --- Mobile Responsive Styles --- */
+        @media (max-width: 750px) {
+            .add-btn-wrapper {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .show-hidden-toggle {
+                position: static;
+                width: auto;
+            }
+        }
+
+        /* --- Tasks Drawer (Right Side of Editor) --- */
+        .tasks-drawer {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 0;
+            height: 100%;
+            background: #1e1e1e;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0 12px 12px 0;
+            overflow: hidden;
+            transition: width 0.3s ease;
+            z-index: 10;
+        }
+
+        body.light-mode .tasks-drawer {
+            background: #f0f0f0;
+            border-left: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .tasks-drawer.open {
+            width: 350px;
+            border-left: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .tasks-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        /* Toggle Button (Half Circle) */
+        .tasks-toggle-btn {
+            position: absolute;
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%) translateX(50%);
+            width: 40px;
+            height: 80px;
+            background: #68f983;
+            border-radius: 40px 0 0 40px;
+            /* Half circle currently facing left? No, user wants right center side of note div */
+            /* Wait, user said: "half circle to the right centre side of the note div ... which if clicked with slide in a tasks.html window" */
+            /* Usually a drawer toggle sits on the edge. If it's on the right edge, it should validly protrude or sit on the edge. */
+            /* Let's style it as a tab sticking out from the right edge, or on the edge. */
+            /* Actually, if the drawer slides IN from the right, the button should probably move with it or stay on the edge? */
+            /* Let's place it on the right edge of the editor window. */
+            right: -20px;
+            /* Protrude partialy */
+            border-radius: 0 40px 40px 0;
+            /* Half circle facing right */
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            box-shadow: 4px 0 10px rgba(0, 0, 0, 0.2);
+            transition: right 0.3s ease;
+        }
+
+        /* Adjust button when drawer is open */
+        .editor-window.drawer-open .tasks-toggle-btn {
+            /* When open, maybe hide it or move it? Let's keep it visible to close? 
+                Or maybe the drawer covers it? 
+                Let's stick it to the left edge of the drawer?
+             */
+            right: 350px;
+            border-radius: 40px 0 0 40px;
+            /* Flip orientation */
+            transform: translateY(-50%) translateX(50%);
+            /* Adjust centering */
+        }
+
+        /* Better styling for the button */
+        .tasks-toggle-btn {
+            right: 0;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 60px;
+            border-radius: 12px 0 0 12px;
+            background: rgba(104, 249, 131, 0.2);
+            border: 1px solid rgba(104, 249, 131, 0.4);
+            border-right: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #68f983;
+            transition: all 0.3s ease;
+        }
+
+        .tasks-toggle-btn:hover {
+            background: rgba(104, 249, 131, 0.4);
+            width: 32px;
+        }
+
+        /* Active state (Drawer Open) */
+        .tasks-toggle-btn.active {
+            right: 350px;
+            background: #68f983;
+            color: #1a1a1a;
+            border-radius: 12px 0 0 12px;
+            width: 32px;
+        }
+
+        /* Make room for the drawer in the editor */
+        .editor-window {
+            position: relative;
+            overflow: hidden;
+            /* To clip the drawer */
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Home Button -->
+    <a href="index.html" class="home-btn" title="Back to Home">
+        <i class="ph ph-house" style="font-size: 24px;"></i>
+    </a>
+
+    <!-- Theme Toggle -->
+    <div class="theme-switch-wrapper">
+        <label class="theme-switch" for="theme-toggle">
+            <input type="checkbox" id="theme-toggle" />
+            <span class="slider"></span>
+        </label>
+    </div>
+
+    <!-- Sync Controls -->
+    <div class="sync-controls">
+        <div class="sync-header" id="sync-header">
+            <span>Sync Controls</span>
+            <span class="collapse-arrow">▼</span>
+        </div>
+        <div class="sync-content">
+            <input type="text" id="sync-id" placeholder="Enter Sync ID">
+            <button id="sync-connect">Connect</button>
+            <span id="sync-status">Disconnected</span>
+        </div>
+    </div>
+
+    <!-- Main Notes Interface -->
+    <div class="notes-container">
+        <h1>My Notes</h1>
+        <div class="notes-list" id="notesList">
+            <p class="loading-msg">Please connect to a Sync ID to view notes.</p>
+        </div>
+        <div class="add-btn-wrapper">
+            <button class="add-note-btn" id="btnAddNote" disabled>+ Add New Note</button>
+            <!-- Show/Hide Hidden Toggle - moved here for mobile layout -->
+            <button id="toggleHiddenBtn" class="show-hidden-toggle">Show Hidden Notes</button>
+        </div>
+    </div>
+
+    <!-- Editor Modal (Hidden by default) -->
+    <div class="editor-overlay" id="editorOverlay">
+        <div class="editor-window">
+            <div class="editor-header">
+                <input type="text" id="noteTitle" class="title-input" placeholder="Note Title (e.g., Week 1)">
+                <div class="editor-actions">
+                    <button class="btn-delete" id="btnDelete" style="display:none;">Delete</button>
+                    <button class="btn-close" onclick="closeEditor()">Close</button>
+                    <button class="btn-save" id="btnSave">Save Document</button>
+                </div>
+            </div>
+            <textarea id="noteContent" placeholder="Type your notes here..."></textarea>
+
+            <!-- Tasks Drawer Toggle -->
+            <div class="tasks-toggle-btn" id="tasksToggleBtn" title="Toggle Tasks">
+                <i class="ph ph-check-square" style="font-size: 20px;"></i>
+            </div>
+
+            <!-- Tasks Drawer -->
+            <div class="tasks-drawer" id="tasksDrawer">
+                <iframe id="tasksFrame" class="tasks-iframe" src="about:blank"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- Firebase Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+        import {
+            getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc
+        } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+
+        // --- Firebase Config ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4oXzllt-5dk-TLG_wAhXggJ7scY-VwtM",
+            authDomain: "gametimeline-895d9.firebaseapp.com",
+            projectId: "gametimeline-895d9",
+            storageBucket: "gametimeline-895d9.firebasestorage.app",
+            messagingSenderId: "855161361770",
+            appId: "1:855161361770:web:9b0fee2a637df3d35c0113"
+        };
+
+        // --- Global Variables ---
+        let db;
+        let currentSyncId = null;
+        let unsubscribe = null; // To stop listening to old rooms
+        let currentNoteId = null; // ID of note currently being edited
+        let autoSaveInterval = null; // For auto-saving drafts
+        const DRAFT_KEY = 'notes_draft'; // localStorage key for drafts
+        const NEW_DRAFT_KEY = 'notes_new_draft'; // localStorage key for unsaved new notes
+        let isNewNote = false; // Track if we're editing a new note
+        let originalTitle = ''; // Track original title for unsaved changes detection
+        let originalContent = ''; // Track original content for unsaved changes detection
+        let allNotesData = []; // Store local copy of notes for filtering
+        let showHiddenMode = false; // State to toggle hidden notes visibility
+
+        // --- DOM Elements ---
+        const notesList = document.getElementById('notesList');
+        const editorOverlay = document.getElementById('editorOverlay');
+        const titleInput = document.getElementById('noteTitle');
+        const contentInput = document.getElementById('noteContent');
+        const deleteBtn = document.getElementById('btnDelete');
+        const saveBtn = document.getElementById('btnSave');
+        const addBtn = document.getElementById('btnAddNote');
+
+        const syncIdInput = document.getElementById('sync-id');
+        const syncConnectBtn = document.getElementById('sync-connect');
+        const syncStatus = document.getElementById('sync-status');
+        const syncControls = document.querySelector('.sync-controls');
+        const syncHeader = document.getElementById('sync-header');
+        const themeToggle = document.getElementById('theme-toggle');
+        const toggleHiddenBtn = document.getElementById('toggleHiddenBtn');
+        const tasksDrawer = document.getElementById('tasksDrawer');
+        const tasksToggleBtn = document.getElementById('tasksToggleBtn');
+        const tasksFrame = document.getElementById('tasksFrame');
+
+        let isDrawerOpen = false;
+
+        // Toggle Drawer
+        tasksToggleBtn.addEventListener('click', () => {
+            isDrawerOpen = !isDrawerOpen;
+
+            if (isDrawerOpen) {
+                tasksDrawer.classList.add('open');
+                tasksToggleBtn.classList.add('active');
+
+                // Load tasks if not loaded or if note changed
+                // We assume currentNoteId is set when editor opens
+                const currentTitle = titleInput.value || 'Untitled';
+                const tasksUrl = `tasks.html?noteId=${currentNoteId || 'new_note'}&noteTitle=${encodeURIComponent(currentTitle)}&embedded=true`;
+
+                if (tasksFrame.getAttribute('src') !== tasksUrl) {
+                    tasksFrame.src = tasksUrl;
+                }
+            } else {
+                tasksDrawer.classList.remove('open');
+                tasksToggleBtn.classList.remove('active');
+            }
+        });
+
+        // --- Init Firebase ---
+        async function init() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                const auth = getAuth(app);
+                await signInAnonymously(auth);
+                console.log("Firebase Connected");
+
+                // Auto-connect if ID exists
+                const savedId = localStorage.getItem('savedSyncId');
+                if (savedId) {
+                    syncIdInput.value = savedId;
+                    connectToSync();
+                }
+
+            } catch (err) {
+                console.error("Firebase Init Error", err);
+                syncStatus.textContent = "Error loading DB";
+            }
+        }
+
+        // --- Sync Logic ---
+        window.connectToSync = function () {
+            const newId = syncIdInput.value.trim();
+            if (!newId) return;
+
+            // Don't reconnect to same room
+            if (newId === currentSyncId) return;
+
+            // Unsubscribe from previous room
+            if (unsubscribe) unsubscribe();
+
+            currentSyncId = newId;
+            localStorage.setItem('savedSyncId', currentSyncId);
+            syncStatus.textContent = "Connecting...";
+            notesList.innerHTML = '<p class="loading-msg">Loading notes...</p>';
+            addBtn.disabled = true; // Disable add until connected
+
+            // Listen to sub-collection: note_rooms/{SyncID}/notes
+            // This is a real-time listener. It fires when you connect, 
+            // AND when data changes on another device.
+            const notesCollectionRef = collection(db, "note_rooms", currentSyncId, "notes");
+
+            unsubscribe = onSnapshot(notesCollectionRef, (snapshot) => {
+                const notesData = [];
+                snapshot.forEach((doc) => {
+                    notesData.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Sort by date descending
+                notesData.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+                allNotesData = notesData; // Update global store
+                renderNotes(); // Render with current filter
+
+                syncStatus.textContent = "Connected";
+                addBtn.disabled = false;
+                updateAddButtonText(); // Update button based on draft state
+            }, (error) => {
+                console.error("Sync Error:", error);
+                syncStatus.textContent = "Connection Failed";
+                notesList.innerHTML = '<p class="loading-msg">Error loading notes.</p>';
+            });
+        };
+
+        // --- Render Logic ---
+        function renderNotes() {
+            notesList.innerHTML = '';
+
+            // Filter notes based on showHiddenMode
+            const notesToRender = allNotesData.filter(note => {
+                if (showHiddenMode) return true; // Show all (hidden ones will be styled)
+                return !note.hidden; // Only show non-hidden
+            });
+
+            // Check for unsaved new note draft and render it first
+            // (Only render new drafts if NOT in show hidden mode, to avoid clutter? 
+            // Or always? Let's keep it always for now, but usually drafts aren't "hidden" yet)
+            const newDraft = getNewNoteDraft();
+            if (newDraft && (newDraft.title || newDraft.content)) {
+                const draftCard = document.createElement('div');
+                draftCard.className = 'note-card draft-card';
+                const draftDate = new Date(newDraft.savedAt).toLocaleDateString() + ' ' + new Date(newDraft.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                draftCard.innerHTML = `
+                   <h3>Unsaved Note</h3>
+                   <p>Select to resume editing or remove the note..</p>
+                   <div class="date">${draftDate}</div>
+               `;
+
+                draftCard.addEventListener('click', () => openDraftEditor(newDraft));
+                notesList.appendChild(draftCard);
+            }
+
+            if (notesToRender.length === 0 && !newDraft) {
+                if (showHiddenMode) {
+                    notesList.innerHTML = '<p class="loading-msg">No hidden notes found.</p>';
+                } else {
+                    notesList.innerHTML = '<p class="loading-msg">No notes found. Create one!</p>';
+                }
+                return;
+            }
+
+            notesToRender.forEach(note => {
+                const card = document.createElement('div');
+                card.className = 'note-card';
+                if (note.hidden) card.classList.add('is-hidden');
+
+                const dateVal = note.updatedAt ? new Date(note.updatedAt) : new Date();
+                const dateStr = dateVal.toLocaleDateString() + ' ' + dateVal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                // Decide icon based on state
+                // If note is hidden, show eye-slash (to indicate "unhide" or just status)
+                // If note is visible, show eye (to hide)
+                // Actually, commonly: Eye = visible (click to hide), Eye Slash = hidden (click to show)
+                // But since we are toggling, let's just use the Eye Slash for "Hide this" and Eye for "Show this" logic?
+                // Standard: 
+                // Visible note -> Click "Eye Slash" (Hide) or "X" 
+                // Hidden note -> Click "Eye" (Show)
+
+                // Let's go with:
+                // If NOT hidden: Icon is Eye (tooltip: Hide)
+                // If hidden: Icon is EyeSlash (tooltip: Unhide)
+                const iconClass = note.hidden ? 'ph-eye-slash' : 'ph-eye';
+                const iconTitle = note.hidden ? 'Unhide Note' : 'Hide Note';
+
+                card.innerHTML = `
+                   <button class="hide-btn" title="${iconTitle}">
+                       <i class="ph ${iconClass}" style="font-size: 18px;"></i>
+                   </button>
+                   <h3>${escapeHtml(note.title || 'Untitled')}</h3>
+                   <p>${escapeHtml(note.content || '')}</p>
+                   <div class="date">${dateStr}</div>
+               `;
+
+                // Hide/Unhide Action
+                const hideBtn = card.querySelector('.hide-btn');
+                hideBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent opening editor
+                    toggleNoteHiddenStatus(note.id, note.hidden);
+                });
+
+                // Open Editor Action
+                card.addEventListener('click', () => openEditor(note.id, note));
+                notesList.appendChild(card);
+            });
+        }
+
+        // --- Toggle Hidden Status ---
+        async function toggleNoteHiddenStatus(noteId, currentStatus) {
+            if (!currentSyncId) return;
+            try {
+                const noteRef = doc(db, "note_rooms", currentSyncId, "notes", noteId);
+                await setDoc(noteRef, { hidden: !currentStatus }, { merge: true });
+                // No need to manually re-render, onSnapshot will fire
+            } catch (e) {
+                console.error("Failed to toggle hidden status:", e);
+                alert("Error updating note status.");
+            }
+        }
+
+        // --- Open Draft Editor (for unsaved new notes) ---
+        function openDraftEditor(draft) {
+            isNewNote = true;
+            currentNoteId = 'note_' + Date.now();
+            editorOverlay.classList.add('active');
+
+            deleteBtn.textContent = 'Delete';
+            titleInput.value = draft.title || '';
+            contentInput.value = draft.content || '';
+
+            // Track original values for unsaved changes detection
+            originalTitle = titleInput.value;
+            originalContent = contentInput.value;
+
+            deleteBtn.style.display = 'inline-block'; // Show delete so user can discard draft
+            titleInput.focus();
+
+            startAutoSave();
+        }
+
+        // --- Editor Logic ---
+        window.openEditor = function (id = null, noteData = null) {
+            currentNoteId = id;
+            editorOverlay.classList.add('active');
+
+            // Reset delete button text (fix for Issue 1)
+            deleteBtn.textContent = 'Delete';
+
+            if (id && noteData) {
+                // Edit Mode - check for existing draft first
+                isNewNote = false;
+                const draft = getDraft(id);
+                if (draft) {
+                    const useDraft = confirm('A draft was found for this note. Would you like to restore it?');
+                    if (useDraft) {
+                        titleInput.value = draft.title || '';
+                        contentInput.value = draft.content || '';
+                    } else {
+                        titleInput.value = noteData.title || '';
+                        contentInput.value = noteData.content || '';
+                        clearDraft(id);
+                    }
+                } else {
+                    titleInput.value = noteData.title || '';
+                    contentInput.value = noteData.content || '';
+                }
+                deleteBtn.style.display = 'inline-block';
+            } else {
+                // New Mode - start fresh (drafts are now shown as cards)
+                isNewNote = true;
+                currentNoteId = 'note_' + Date.now();
+                titleInput.value = '';
+                contentInput.value = '';
+                deleteBtn.style.display = 'none';
+                titleInput.focus();
+            }
+
+            // Track original values for unsaved changes detection
+            originalTitle = titleInput.value;
+            originalContent = contentInput.value;
+
+            // Start auto-save interval
+            startAutoSave();
+        };
+
+        // --- Auto-Save Functions ---
+        function getDraft(noteId) {
+            try {
+                const drafts = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}');
+                return drafts[noteId] || null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // --- New Note Draft Functions ---
+        function getNewNoteDraft() {
+            try {
+                const draft = localStorage.getItem(NEW_DRAFT_KEY);
+                return draft ? JSON.parse(draft) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function saveNewNoteDraft() {
+            try {
+                localStorage.setItem(NEW_DRAFT_KEY, JSON.stringify({
+                    title: titleInput.value,
+                    content: contentInput.value,
+                    savedAt: Date.now()
+                }));
+            } catch (e) {
+                console.error('Failed to save new note draft:', e);
+            }
+        }
+
+        function clearNewNoteDraft() {
+            try {
+                localStorage.removeItem(NEW_DRAFT_KEY);
+            } catch (e) {
+                console.error('Failed to clear new note draft:', e);
+            }
+        }
+
+        function saveDraft() {
+            if (!currentNoteId) return;
+            try {
+                if (isNewNote) {
+                    // Save new notes to special key
+                    saveNewNoteDraft();
+                } else {
+                    // Save existing notes to keyed storage
+                    const drafts = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}');
+                    drafts[currentNoteId] = {
+                        title: titleInput.value,
+                        content: contentInput.value,
+                        savedAt: Date.now()
+                    };
+                    localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
+                }
+            } catch (e) {
+                console.error('Failed to save draft:', e);
+            }
+        }
+
+        function clearDraft(noteId) {
+            try {
+                if (isNewNote) {
+                    clearNewNoteDraft();
+                } else {
+                    const drafts = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}');
+                    delete drafts[noteId];
+                    localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
+                }
+            } catch (e) {
+                console.error('Failed to clear draft:', e);
+            }
+        }
+
+        function startAutoSave() {
+            // Clear any existing interval
+            if (autoSaveInterval) clearInterval(autoSaveInterval);
+            // Save draft every 2 seconds while editing
+            autoSaveInterval = setInterval(saveDraft, 2000);
+        }
+
+        function stopAutoSave() {
+            if (autoSaveInterval) {
+                clearInterval(autoSaveInterval);
+                autoSaveInterval = null;
+            }
+        }
+
+        // Check if there are unsaved changes
+        function hasUnsavedChanges() {
+            return titleInput.value !== originalTitle || contentInput.value !== originalContent;
+        }
+
+        window.closeEditor = function () {
+            // Check for unsaved changes before closing
+            if (hasUnsavedChanges()) {
+                const confirmClose = confirm('You have unsaved changes. Are you sure you want to close without saving?');
+                if (!confirmClose) return; // User cancelled, don't close
+            }
+
+            stopAutoSave();
+            // Only clear drafts for EXISTING notes when closing
+            // For new notes, keep the draft so user can continue editing later
+            if (currentNoteId && !isNewNote) {
+                clearDraft(currentNoteId);
+            }
+            editorOverlay.classList.remove('active');
+            currentNoteId = null;
+            isNewNote = false;
+
+            // Update button text based on remaining drafts
+            updateAddButtonText();
+        };
+
+        // --- Save to Firebase (Manually triggered) ---
+        saveBtn.addEventListener('click', async () => {
+            if (!currentSyncId) {
+                alert("Not connected to a Sync ID!");
+                return;
+            }
+
+            const title = titleInput.value.trim();
+            const content = contentInput.value.trim();
+
+            // Don't save completely empty notes
+            if (!title && !content) {
+                closeEditor();
+                return;
+            }
+
+            saveBtn.textContent = "Saving...";
+            saveBtn.disabled = true;
+
+            try {
+                // Path: note_rooms/{SyncID}/notes/{NoteID}
+                const noteRef = doc(db, "note_rooms", currentSyncId, "notes", currentNoteId);
+
+                const noteData = {
+                    title: title,
+                    content: content,
+                    updatedAt: Date.now()
+                };
+
+                // Clear the draft BEFORE saving - prevents race condition with onSnapshot
+                // (onSnapshot fires when setDoc completes and would re-render the draft card
+                // before we had a chance to clear it)
+                clearDraft(currentNoteId);
+                updateAddButtonText();
+
+                // setDoc with merge: true acts as "Create or Update"
+                await setDoc(noteRef, noteData, { merge: true });
+
+                stopAutoSave();
+
+                editorOverlay.classList.remove('active');
+                currentNoteId = null;
+                isNewNote = false;
+            } catch (e) {
+                console.error("Save failed", e);
+                alert("Failed to save note. Check connection.");
+            } finally {
+                saveBtn.textContent = "Save Document";
+                saveBtn.disabled = false;
+            }
+        });
+
+        // --- Delete from Firebase ---
+        deleteBtn.addEventListener('click', async () => {
+            if (confirm("Are you sure you want to permanently delete this note?")) {
+                if (!currentSyncId || !currentNoteId) return;
+
+                deleteBtn.textContent = "...";
+                try {
+                    // Path: note_rooms/{SyncID}/notes/{NoteID}
+                    const noteRef = doc(db, "note_rooms", currentSyncId, "notes", currentNoteId);
+                    await deleteDoc(noteRef);
+                    closeEditor();
+                } catch (e) {
+                    console.error("Delete failed", e);
+                    alert("Failed to delete note.");
+                    deleteBtn.textContent = "Delete";
+                }
+            }
+        });
+
+        // --- Helper: Escape HTML to prevent XSS ---
+        function escapeHtml(text) {
+            if (!text) return "";
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // --- Event Listeners ---
+
+        // Update add button text based on draft state
+        function updateAddButtonText() {
+            const newDraft = getNewNoteDraft();
+            if (newDraft && (newDraft.title || newDraft.content)) {
+                addBtn.textContent = 'Continue Editing';
+            } else {
+                addBtn.textContent = '+ Add New Note';
+            }
+        }
+
+        // Add button click handler
+        addBtn.addEventListener('click', () => {
+            const newDraft = getNewNoteDraft();
+            if (newDraft && (newDraft.title || newDraft.content)) {
+                // Draft exists - open the draft editor
+                openDraftEditor(newDraft);
+            } else {
+                // No draft - create new note
+                openEditor();
+            }
+        });
+
+        syncConnectBtn.addEventListener('click', connectToSync);
+
+        if (syncHeader) {
+            syncHeader.addEventListener('click', () => {
+                syncControls.classList.toggle('collapsed');
+                localStorage.setItem('syncCollapsed', syncControls.classList.contains('collapsed'));
+            });
+        }
+
+        // Toggle Hidden Mode
+        toggleHiddenBtn.addEventListener('click', () => {
+            showHiddenMode = !showHiddenMode;
+            if (showHiddenMode) {
+                toggleHiddenBtn.textContent = 'Hide Hidden Notes';
+                toggleHiddenBtn.style.opacity = '1';
+            } else {
+                toggleHiddenBtn.textContent = 'Show Hidden Notes';
+            }
+            renderNotes();
+        });
+
+        // Close on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && editorOverlay.classList.contains('active')) {
+                closeEditor();
+            }
+        });
+
+        // --- Save draft immediately before page closes (handles Alt+F4, browser close, etc.) ---
+        window.addEventListener('beforeunload', () => {
+            if (currentNoteId && editorOverlay.classList.contains('active')) {
+                saveDraft(); // Force save on close
+            }
+        });
+
+        // --- Theme Logic ---
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-mode');
+                themeToggle.checked = true;
+            } else {
+                document.body.classList.remove('light-mode');
+                themeToggle.checked = false;
+            }
+        }
+
+        themeToggle.addEventListener('change', () => {
+            document.body.classList.toggle('light-mode');
+            if (document.body.classList.contains('light-mode')) {
+                localStorage.setItem('theme', 'light');
+            } else {
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+
+        function loadSyncCollapseState() {
+            const isCollapsed = localStorage.getItem('syncCollapsed') === 'true';
+            if (isCollapsed) syncControls.classList.add('collapsed');
+        }
+
+        // Run startup
+        loadTheme();
+        loadSyncCollapseState();
+        init();
+
+    </script>
+</body>
+
+</html>
+
+</html>
