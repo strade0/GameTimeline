@@ -111,15 +111,82 @@
         .notes-list {
             flex-grow: 1;
             overflow-y: auto;
-            overflow-x: visible;
+            overflow-x: hidden;
             margin-bottom: 20px;
             padding: 10px;
             margin: -10px;
             margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-content: start;
+            /* Hide scrollbar but keep functionality */
+            scrollbar-width: none;
+            /* Firefox */
+            -ms-overflow-style: none;
+            /* IE/Edge */
+        }
+
+        .notes-list::-webkit-scrollbar {
+            display: none;
+            /* Chrome/Safari/Opera */
+        }
+
+        /* Week Section Container */
+        .week-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Week Cards Grid */
+        .week-cards {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 15px;
-            align-content: start;
+        }
+
+        /* Week Divider Header */
+        .week-divider {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 5px 0;
+            margin-top: 10px;
+        }
+
+        .week-divider:first-child {
+            margin-top: 0;
+        }
+
+        .week-divider-text {
+            font-size: 0.85em;
+            font-weight: 600;
+            opacity: 0.6;
+            white-space: nowrap;
+            text-align: left;
+        }
+
+        .week-divider-text .week-label {
+            display: block;
+            font-size: 1em;
+        }
+
+        .week-divider-text .week-dates {
+            display: block;
+            font-size: 0.85em;
+            font-weight: 400;
+            opacity: 0.7;
+        }
+
+        .week-divider-line {
+            flex-grow: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        body.light-mode .week-divider-line {
+            background: rgba(0, 0, 0, 0.1);
         }
 
         /* Note Card Item */
@@ -797,6 +864,77 @@
             });
         };
 
+        // --- Week Calculation Helpers ---
+        function getStartOfWeek(date) {
+            const d = new Date(date);
+            const day = d.getDay();
+            // Adjust to Monday (0 = Sunday, so Monday = 1)
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            d.setDate(diff);
+            d.setHours(0, 0, 0, 0);
+            return d;
+        }
+
+        function getWeekNumber(noteDate) {
+            const now = new Date();
+            const currentWeekStart = getStartOfWeek(now);
+            const noteWeekStart = getStartOfWeek(noteDate);
+
+            // Calculate difference in weeks
+            const diffTime = currentWeekStart.getTime() - noteWeekStart.getTime();
+            const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000));
+            return diffWeeks;
+        }
+
+        function getWeekLabel(weeksAgo) {
+            if (weeksAgo === 0) return 'This Week';
+            if (weeksAgo === 1) return 'One Week Ago';
+            if (weeksAgo === 2) return 'Two Weeks Ago';
+            if (weeksAgo === 3) return 'Three Weeks Ago';
+            if (weeksAgo === 4) return 'Four Weeks Ago';
+            return `${weeksAgo} Weeks Ago`;
+        }
+
+        function getWeekDateRange(weeksAgo) {
+            const now = new Date();
+            const currentWeekStart = getStartOfWeek(now);
+
+            // Calculate the start of the target week
+            const targetWeekStart = new Date(currentWeekStart);
+            targetWeekStart.setDate(targetWeekStart.getDate() - (weeksAgo * 7));
+
+            // Calculate the end of the target week (Sunday)
+            const targetWeekEnd = new Date(targetWeekStart);
+            targetWeekEnd.setDate(targetWeekEnd.getDate() + 6);
+
+            const options = { month: 'short', day: 'numeric' };
+            const startStr = targetWeekStart.toLocaleDateString(undefined, options);
+            const endStr = targetWeekEnd.toLocaleDateString(undefined, options);
+
+            return `${startStr} - ${endStr}`;
+        }
+
+        function groupNotesByWeek(notes) {
+            const groups = {};
+
+            notes.forEach(note => {
+                const noteDate = note.updatedAt ? new Date(note.updatedAt) : new Date();
+                const weeksAgo = getWeekNumber(noteDate);
+
+                if (!groups[weeksAgo]) {
+                    groups[weeksAgo] = [];
+                }
+                groups[weeksAgo].push(note);
+            });
+
+            // Sort each group by date descending
+            Object.keys(groups).forEach(week => {
+                groups[week].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+            });
+
+            return groups;
+        }
+
         // --- Render Logic ---
         function renderNotes() {
             notesList.innerHTML = '';
@@ -808,10 +946,15 @@
             });
 
             // Check for unsaved new note draft and render it first
-            // (Only render new drafts if NOT in show hidden mode, to avoid clutter? 
-            // Or always? Let's keep it always for now, but usually drafts aren't "hidden" yet)
             const newDraft = getNewNoteDraft();
             if (newDraft && (newDraft.title || newDraft.content)) {
+                // Create a draft section at the top
+                const draftSection = document.createElement('div');
+                draftSection.className = 'week-section';
+
+                const draftCards = document.createElement('div');
+                draftCards.className = 'week-cards';
+
                 const draftCard = document.createElement('div');
                 draftCard.className = 'note-card draft-card';
                 const draftDate = new Date(newDraft.savedAt).toLocaleDateString() + ' ' + new Date(newDraft.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -823,7 +966,9 @@
                 `;
 
                 draftCard.addEventListener('click', () => openDraftEditor(newDraft));
-                notesList.appendChild(draftCard);
+                draftCards.appendChild(draftCard);
+                draftSection.appendChild(draftCards);
+                notesList.appendChild(draftSection);
             }
 
             if (notesToRender.length === 0 && !newDraft) {
@@ -835,48 +980,67 @@
                 return;
             }
 
-            notesToRender.forEach(note => {
-                const card = document.createElement('div');
-                card.className = 'note-card';
-                if (note.hidden) card.classList.add('is-hidden');
+            // Group notes by week
+            const weekGroups = groupNotesByWeek(notesToRender);
+            const sortedWeeks = Object.keys(weekGroups).map(Number).sort((a, b) => a - b);
 
-                const dateVal = note.updatedAt ? new Date(note.updatedAt) : new Date();
-                const dateStr = dateVal.toLocaleDateString() + ' ' + dateVal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            sortedWeeks.forEach((weeksAgo, index) => {
+                const notes = weekGroups[weeksAgo];
 
-                // Decide icon based on state
-                // If note is hidden, show eye-slash (to indicate "unhide" or just status)
-                // If note is visible, show eye (to hide)
-                // Actually, commonly: Eye = visible (click to hide), Eye Slash = hidden (click to show)
-                // But since we are toggling, let's just use the Eye Slash for "Hide this" and Eye for "Show this" logic?
-                // Standard: 
-                // Visible note -> Click "Eye Slash" (Hide) or "X" 
-                // Hidden note -> Click "Eye" (Show)
+                // Create week section container
+                const weekSection = document.createElement('div');
+                weekSection.className = 'week-section';
 
-                // Let's go with:
-                // If NOT hidden: Icon is Eye (tooltip: Hide)
-                // If hidden: Icon is EyeSlash (tooltip: Unhide)
-                const iconClass = note.hidden ? 'ph-eye-slash' : 'ph-eye';
-                const iconTitle = note.hidden ? 'Unhide Note' : 'Hide Note';
-
-                card.innerHTML = `
-                    <button class="hide-btn" title="${iconTitle}">
-                        <i class="ph ${iconClass}" style="font-size: 18px;"></i>
-                    </button>
-                    <h3>${escapeHtml(note.title || 'Untitled')}</h3>
-                    <p>${escapeHtml(note.content || '')}</p>
-                    <div class="date">${dateStr}</div>
+                // Create week divider
+                const divider = document.createElement('div');
+                divider.className = 'week-divider';
+                divider.innerHTML = `
+                    <div class="week-divider-text">
+                        <span class="week-label">${getWeekLabel(weeksAgo)}</span>
+                        <span class="week-dates">${getWeekDateRange(weeksAgo)}</span>
+                    </div>
+                    <div class="week-divider-line"></div>
                 `;
+                weekSection.appendChild(divider);
 
-                // Hide/Unhide Action
-                const hideBtn = card.querySelector('.hide-btn');
-                hideBtn.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent opening editor
-                    toggleNoteHiddenStatus(note.id, note.hidden);
+                // Create cards container
+                const cardsContainer = document.createElement('div');
+                cardsContainer.className = 'week-cards';
+
+                notes.forEach(note => {
+                    const card = document.createElement('div');
+                    card.className = 'note-card';
+                    if (note.hidden) card.classList.add('is-hidden');
+
+                    const dateVal = note.updatedAt ? new Date(note.updatedAt) : new Date();
+                    const dateStr = dateVal.toLocaleDateString() + ' ' + dateVal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                    const iconClass = note.hidden ? 'ph-eye-slash' : 'ph-eye';
+                    const iconTitle = note.hidden ? 'Unhide Note' : 'Hide Note';
+
+                    card.innerHTML = `
+                        <button class="hide-btn" title="${iconTitle}">
+                            <i class="ph ${iconClass}" style="font-size: 18px;"></i>
+                        </button>
+                        <h3>${escapeHtml(note.title || 'Untitled')}</h3>
+                        <p>${escapeHtml(note.content || '')}</p>
+                        <div class="date">${dateStr}</div>
+                    `;
+
+                    // Hide/Unhide Action
+                    const hideBtn = card.querySelector('.hide-btn');
+                    hideBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleNoteHiddenStatus(note.id, note.hidden);
+                    });
+
+                    // Open Editor Action
+                    card.addEventListener('click', () => openEditor(note.id, note));
+                    cardsContainer.appendChild(card);
                 });
 
-                // Open Editor Action
-                card.addEventListener('click', () => openEditor(note.id, note));
-                notesList.appendChild(card);
+                weekSection.appendChild(cardsContainer);
+                notesList.appendChild(weekSection);
             });
         }
 
