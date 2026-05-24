@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="robots" content="noindex, nofollow, noimageindex">
+    <meta name="googlebot" content="noindex, nofollow">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <title>Game Dev Tracker • Gaussian Splat</title>
+
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Load Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Load Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        /* Exact match to index.html design system */
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #232323 0%, #000000 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            color: #f5f5f5;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism Card Style - identical to index */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            pointer-events: auto;
+        }
+
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Accent button - exact match */
+        .btn-accent {
+            background: #68f983;
+            color: #1a1a1a;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+
+        .btn-accent:hover {
+            opacity: 0.9;
+        }
+
+        .btn-accent:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Viewer container - full bleed */
+        #viewer-container {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            background: #0a0a0a;
+            overflow: hidden;
+        }
+
+        #viewer-container canvas {
+            display: block;
+            outline: none;
+        }
+
+        /* Floating glass panels */
+        .floating-panel {
+            background: rgba(26, 26, 26, 0.85);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            pointer-events: auto;
+        }
+
+        /* Progress bar styling */
+        .progress-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #68f983, #4ade80);
+            transition: width 0.2s ease-out;
+            border-radius: 9999px;
+        }
+
+        /* Loading overlay */
+        #loading-overlay {
+            z-index: 50;
+            transition: opacity 400ms ease, visibility 400ms;
+        }
+
+        .loading-hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        /* Info / control labels */
+        .panel-label {
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Subtle canvas overlay hints */
+        .viewer-hint {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 768px) {
+            .floating-panel {
+                font-size: 0.9rem;
+            }
+            
+            .panel-label {
+                font-size: 0.65rem;
+            }
+        }
+
+        /* Keyboard shortcut hints */
+        .shortcut {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+        }
+    </style>
+</head>
+<body class="selection:bg-green-500 selection:text-black">
+
+    <!-- Top Navigation Bar -->
+    <div class="fixed top-0 left-0 right-0 z-40 border-b border-white/10 bg-black/60 backdrop-blur-xl">
+        <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <!-- Back link -->
+                <a href="index.html" 
+                   class="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors group">
+                    <i class="ph ph-arrow-left text-lg group-hover:-translate-x-0.5 transition-transform"></i>
+                    <span>Back to Dashboard</span>
+                </a>
+                
+                <div class="w-px h-5 bg-white/20"></div>
+                
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-white/10 flex items-center justify-center">
+                        <i class="ph ph-cube text-[#68f983] text-lg"></i>
+                    </div>
+                    <div>
+                        <div class="text-white font-semibold tracking-tight">Gaussian Splat</div>
+                        <div class="text-[10px] text-gray-500 -mt-0.5">3D Modelling • Newsest</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status pill + top-right help button removed per user request (the green "Interactive" pill with ? icon) -->
+        </div>
+    </div>
+
+    <!-- 3D Viewer Container -->
+    <div id="viewer-container" class="fixed inset-0 pt-14">
+        <!-- Three.js canvas will be appended here by the module script -->
+        
+        <!-- Subtle viewer hints (shown until interaction) -->
+        <div id="viewer-hints" 
+             class="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none z-10 hidden md:block">
+            <div class="viewer-hint flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 border border-white/10">
+                <span>WASD to fly</span>
+                <span class="text-white/20">•</span>
+                <span>E / Q = up / down</span>
+                <span class="text-white/20">•</span>
+                <span>Shift = boost</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Left Info Panel -->
+    <div class="fixed top-20 left-6 z-[9998] max-w-[260px] hidden lg:block">
+        <div class="floating-panel glass-card rounded-2xl p-5 text-sm">
+            <div class="panel-label mb-3">Current Asset</div>
+            
+            <div class="font-semibold text-lg tracking-tight mb-1">Newsest.ply</div>
+            <div class="text-gray-400 text-xs mb-4">5,000,000 Gaussian splats • 1.24 GB</div>
+
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Format</span>
+                    <span class="font-mono text-xs text-white/80">Binary PLY (3DGS)</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">SH Degree</span>
+                    <span class="font-mono text-xs text-white/80">3 (full)</span>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-white/10 text-[11px] text-gray-500 leading-snug">
+                High-fidelity reconstruction from the 3D Modelling module.
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Controls Bar -->
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] lg:hidden">
+        <div class="floating-panel glass-card rounded-2xl px-2 py-2 flex items-center gap-1">
+            <button onclick="resetCamera()"
+                    class="px-4 py-2 text-sm flex items-center gap-1.5 active:bg-white/10 rounded-xl">
+                <i class="ph ph-target"></i>
+                <span class="text-xs">Reset</span>
+            </button>
+            <div class="w-px h-5 bg-white/15"></div>
+            <button id="mobile-auto-rotate"
+                    onclick="toggleAutoRotate()"
+                    class="px-4 py-2 text-sm flex items-center gap-1.5 active:bg-white/10 rounded-xl">
+                <i class="ph ph-arrows-clockwise"></i>
+                <span class="text-xs">Auto</span>
+            </button>
+            <div class="w-px h-5 bg-white/15"></div>
+            <button onclick="toggleFullscreen()"
+                    class="px-4 py-2 text-sm flex items-center gap-1.5 active:bg-white/10 rounded-xl">
+                <i class="ph ph-arrows-out"></i>
+            </button>
+            <div class="w-px h-5 bg-white/15"></div>
+            <button onclick="showHelp()"
+                    class="px-4 py-2 text-sm flex items-center gap-1.5 active:bg-white/10 rounded-xl">
+                <i class="ph ph-question"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Large Asset Warning Banner (always visible until dismissed) -->
+    <div id="size-warning"
+         class="fixed bottom-6 left-6 right-6 lg:left-auto lg:right-6 lg:bottom-6 lg:w-80 z-40 floating-panel glass-card rounded-2xl p-4 text-sm border border-amber-500/30">
+        <div class="flex gap-3">
+            <i class="ph ph-warning text-amber-400 mt-0.5 text-lg shrink-0"></i>
+            <div class="flex-1 min-w-0">
+                <div class="font-semibold text-amber-400 text-xs tracking-wider mb-1">LARGE ASSET</div>
+                <div class="text-gray-300 text-[13px] leading-snug">
+                    This model is <span class="font-semibold text-white">1.24 GB</span>. 
+                    First load may take a long time depending on your connection.
+                </div>
+                <button onclick="dismissSizeWarning()"
+                        class="mt-3 text-[11px] text-gray-400 hover:text-white underline underline-offset-2">
+                    Got it, don't show again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOADING OVERLAY -->
+    <div id="loading-overlay"
+         class="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex items-center justify-center p-6">
+        <div class="max-w-md w-full">
+            
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mb-4">
+                    <i class="ph ph-cube text-4xl text-[#68f983]"></i>
+                </div>
+                <h2 class="text-2xl font-semibold tracking-tight">Loading Gaussian Splat</h2>
+                <p class="text-gray-400 mt-1.5 text-sm">Newsest • 5 million splats</p>
+            </div>
+
+            <!-- Progress -->
+            <div class="glass-card rounded-2xl p-6">
+                <div class="flex justify-between text-xs mb-2 text-gray-400">
+                    <div>Downloading &amp; parsing</div>
+                    <div id="progress-percent" class="font-mono tabular-nums">0%</div>
+                </div>
+                
+                <div class="progress-bar mb-3">
+                    <div id="progress-fill" class="progress-fill" style="width: 0%"></div>
+                </div>
+                
+                <div class="flex justify-between text-xs">
+                    <div>
+                        <span id="progress-mb" class="font-mono text-[#68f983]">0</span>
+                        <span class="text-gray-500">/ 1,240 MB</span>
+                    </div>
+                    <div id="progress-time" class="text-gray-500 font-mono tabular-nums">calculating...</div>
+                </div>
+            </div>
+
+            <div class="mt-6 text-center">
+                <p class="text-xs text-gray-500 max-w-[260px] mx-auto">
+                    This is a high-detail 3D Gaussian Splatting reconstruction. 
+                    The file is large by design.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Map + Main Viewer Script -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+            "@sparkjsdev/spark": "https://sparkjs.dev/releases/spark/2.1.0/spark.module.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+        // =====================================================
+        // GAUSSIAN SPLAT VIEWER - Spark + Three.js
+        // Single-file implementation matching Game Dev Tracker design
+        // =====================================================
+
+        import * as THREE from "three";
+        import { FlyControls } from "three/addons/controls/FlyControls.js";
+        import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
+
+        // DOM references
+        const container = document.getElementById('viewer-container');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const progressFill = document.getElementById('progress-fill');
+        const progressPercent = document.getElementById('progress-percent');
+        const progressMB = document.getElementById('progress-mb');
+        const progressTime = document.getElementById('progress-time');
+        const viewerHints = document.getElementById('viewer-hints');
+        // status-pill and status-text elements were removed from the UI per user request.
+        // All references below have been cleaned to prevent "Cannot read properties of null (reading 'classList')" errors.
+        const sizeWarning = document.getElementById('size-warning');
+
+        // Viewer state
+        let renderer, scene, camera, controls, spark;
+        let splatMesh = null;
+        let autoRotate = false;
+        let isLoaded = false;
+        let clock = new THREE.Clock();
+
+        // Keyboard state for custom fly movement
+        const keys = {};
+
+        function claimKeyboardFor3D() {
+            if (document.activeElement && document.activeElement !== document.body) {
+                document.activeElement.blur();
+            }
+        }
+
+        // Custom direct mouse look state (no smoothing)
+        let isDraggingLook = false;
+        let lookSensitivity = 0.0022;
+        let yaw = 0;
+        let pitch = 0;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        // Load progress tracking (for 1.24 GB file)
+        let loadStartTime = 0;
+        let lastProgressUpdate = 0;
+        let downloadBytes = 0;
+        let totalBytes = 1240000000; // ~1.24 GB (will be refined by Content-Length if available)
+
+        function updateLoadingProgress(receivedBytes, total = totalBytes) {
+            if (!loadingOverlay || loadingOverlay.classList.contains('loading-hidden')) return;
+
+            const percent = total > 0 ? Math.min((receivedBytes / total) * 100, 100) : 0;
+            const mb = (receivedBytes / 1024 / 1024).toFixed(0);
+            const totalMB = (total / 1024 / 1024).toFixed(0);
+
+            progressFill.style.width = `${percent.toFixed(1)}%`;
+            progressPercent.textContent = `${percent.toFixed(0)}%`;
+            progressMB.innerHTML = `${mb}<span class="text-gray-500"> / ${totalMB} MB</span>`;
+
+            // Time estimation
+            const elapsed = (Date.now() - loadStartTime) / 1000;
+            if (percent > 3 && elapsed > 2) {
+                const rate = receivedBytes / elapsed;
+                const remaining = (total - receivedBytes) / rate;
+                const min = Math.ceil(remaining / 60);
+                progressTime.textContent = min > 1 ? `~${min} min left` : `${Math.ceil(remaining)}s left`;
+            } else {
+                progressTime.textContent = 'estimating...';
+            }
+        }
+
+        function hideLoadingOverlay() {
+            loadingOverlay.classList.add('loading-hidden');
+            // Show viewer hints briefly
+            setTimeout(() => {
+                if (viewerHints) viewerHints.style.display = 'block';
+                setTimeout(() => {
+                    if (viewerHints) viewerHints.style.opacity = '0';
+                }, 4200);
+            }, 800);
+        }
+
+        async function loadSplatWithProgress() {
+            loadStartTime = Date.now();
+            // Status pill removed from UI — no longer updating it
+
+            // === SPLAT FILE CONFIGURATION ===
+            //
+            // Because GitHub has strict file size limits (~100 MB hard limit, and repos get slow with big files),
+            // the recommended approach for anything over ~20-30 MB is to host the splat file externally.
+            //
+            // Option 1 (Recommended): Load from a remote URL (GitHub Releases, Cloudflare R2, S3, etc.)
+            // Example: "https://github.com/yourname/yourrepo/releases/download/v1.0/scene.spz"
+            const REMOTE_SPLAT_URL = null;
+
+            // Option 2: Local files (only realistic if the compressed file is very small, ideally < 25 MB)
+            const candidates = [
+                './Compressed.spz',     // preferred
+                './PLYcompressed.ply',
+                './Newsest.sog',
+                './Newsest.ksplat',
+                './Newsest.ply'
+            ];
+
+            let splatURL = null;
+            let response = null;
+
+            if (REMOTE_SPLAT_URL) {
+                // === Load from external URL (best for GitHub) ===
+                splatURL = REMOTE_SPLAT_URL;
+                console.log(`[SplatViewer] Loading from remote URL: ${splatURL}`);
+                response = await fetch(splatURL);
+            } else {
+                // === Load from local files ===
+                for (const file of candidates) {
+                    try {
+                        const head = await fetch(file, { method: 'HEAD' });
+                        if (head.ok) {
+                            splatURL = file;
+                            response = await fetch(file);
+                            console.log(`[SplatViewer] Loading from ${file}`);
+                            break;
+                        }
+                    } catch (err) {
+                        console.warn(`[SplatViewer] Could not access ${file}`, err);
+                    }
+                }
+            }
+
+            if (!splatURL || !response || !response.ok) {
+                throw new Error(
+                    'No splat file found.\n' +
+                    '→ For GitHub, host your .spz/.sog file externally and set REMOTE_SPLAT_URL above.\n' +
+                    '→ Or place a small compressed file (ideally < 25 MB) in the same folder as splat.html.'
+                );
+            }
+
+            try {
+                // === SINGLE FETCH WITH ACCURATE PROGRESS ===
+                const contentLength = response.headers.get('Content-Length');
+                if (contentLength) {
+                    totalBytes = parseInt(contentLength, 10);
+                }
+
+                const reader = response.body.getReader();
+                let received = 0;
+                const chunks = [];
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    chunks.push(value);
+                    received += value.byteLength;
+                    downloadBytes = received;
+
+                    const now = Date.now();
+                    if (now - lastProgressUpdate > 80) {
+                        updateLoadingProgress(received, totalBytes);
+                        lastProgressUpdate = now;
+                    }
+                }
+
+                // Reassemble
+                const fullBlob = new Blob(chunks);
+                const arrayBuffer = await fullBlob.arrayBuffer();
+
+                const objectURL = URL.createObjectURL(new Blob([arrayBuffer], { type: 'application/octet-stream' }));
+
+                splatMesh = new SplatMesh({ url: objectURL });
+                scene.add(splatMesh);
+
+                // The captured splat often comes in inverted (its natural "up" points down in world space).
+                // Rotating it 180° on X makes world +Y actually "up" for this model.
+                // This should make E (up) and Q (down) feel correct.
+                splatMesh.rotation.x = Math.PI;
+
+                // Performance cap
+                if (splatMesh) {
+                    splatMesh.maxSplats = 1_800_000;
+                }
+
+                // Clean up the object URL
+                setTimeout(() => URL.revokeObjectURL(objectURL), 30000);
+
+                updateLoadingProgress(totalBytes, totalBytes);
+
+                // === FINALIZING PHASE ===
+                if (progressPercent) progressPercent.textContent = '100%';
+                if (progressTime) progressTime.textContent = 'finalizing...';
+
+                const progressLabel = document.querySelector('#loading-overlay .glass-card .flex.justify-between.text-xs.mb-2');
+                if (progressLabel) {
+                    progressLabel.innerHTML = '<div>Parsing &amp; uploading to GPU...</div><div class="font-mono tabular-nums">100%</div>';
+                }
+
+                if (progressFill) {
+                    progressFill.style.width = '100%';
+                    progressFill.style.transition = 'width 400ms ease, opacity 600ms';
+                    progressFill.style.opacity = '0.55';
+                    progressFill.animate(
+                        [{ opacity: 0.55 }, { opacity: 1 }, { opacity: 0.55 }],
+                        { duration: 1350, iterations: Infinity }
+                    );
+                }
+
+                // statusText removed — no longer updating status pill
+
+                // Robust readiness + safety timeout
+                let readyCheckAttempts = 0;
+                const checkIntervalMs = 650;
+                const forceRevealAfterMs = 1000 * 70;
+                const forceRevealAt = Date.now() + forceRevealAfterMs;
+
+                const checkReady = setInterval(() => {
+                    readyCheckAttempts++;
+                    const now = Date.now();
+
+                    let looksReady = false;
+
+                    if (splatMesh) {
+                        try {
+                            if (splatMesh.geometry) {
+                                const attrs = splatMesh.geometry.attributes || {};
+                                const pos = attrs.position || attrs.center;
+                                if (pos && (pos.count > 50000 || pos.array)) looksReady = true;
+                            }
+                            if (typeof splatMesh.count === 'number' && splatMesh.count > 50000) looksReady = true;
+                            if (typeof splatMesh.splatCount === 'number' && splatMesh.splatCount > 50000) looksReady = true;
+                            if (typeof splatMesh.numSplats === 'number' && splatMesh.numSplats > 50000) looksReady = true;
+                            if (splatMesh.loaded === true || splatMesh.isLoaded === true) looksReady = true;
+                            if (splatMesh.material && splatMesh.material.uniforms) looksReady = true;
+                            if (splatMesh._lastRenderFrame !== undefined) looksReady = true;
+                        } catch (e) { /* ignore */ }
+                    }
+
+                    const shouldForce = now > forceRevealAt;
+
+                    if (looksReady || shouldForce) {
+                        clearInterval(checkReady);
+
+                        isLoaded = true;
+                        // status pill removed from UI
+                        // (no classList or textContent updates)
+
+                        if (progressFill) {
+                            progressFill.getAnimations().forEach(a => a.cancel());
+                            progressFill.style.opacity = '1';
+                        }
+
+                        setTimeout(() => {
+                            try { frameSplat(); } catch (e) {}
+                        }, 280);
+
+                        hideLoadingOverlay();
+                        if (sizeWarning) sizeWarning.style.display = 'none';
+
+                        if (shouldForce) {
+                            console.warn('%c[SplatViewer] Forced reveal after timeout — Spark may expose data differently on this model. Scene should still render.', 'color:#f59e0b');
+                        }
+                    }
+
+                    // Occasional debug logging
+                    if (readyCheckAttempts % 20 === 0) {
+                        console.log('[SplatViewer] Finalizing... attempts:', readyCheckAttempts);
+                    }
+                    if (readyCheckAttempts === 8 || readyCheckAttempts % 40 === 0) {
+                        console.log('[SplatViewer] Still finalizing. splatMesh keys:', splatMesh ? Object.keys(splatMesh).slice(0, 12) : null);
+                    }
+
+                    // Status message during long finalization
+                    if (readyCheckAttempts % 18 === 0) {
+                        const secs = Math.round((now - forceRevealAt + forceRevealAfterMs) / 1000);
+                        // statusText removed from DOM
+                    }
+                }, checkIntervalMs);
+
+            } catch (err) {
+                console.error('Splat loading error:', err);
+                setTimeout(() => {
+                    if (loadingOverlay && !loadingOverlay.classList.contains('loading-hidden')) {
+                        hideLoadingOverlay();
+                    }
+                    if (!isLoaded) {
+                        isLoaded = true;
+                        // status pill removed — skipping text update
+                    }
+                }, 2500);
+            }
+        }
+
+        function initThreeJS() {
+            // Renderer
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: false,
+                powerPreference: "high-performance",
+            });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+            container.appendChild(renderer.domElement);
+
+            // Scene
+            scene = new THREE.Scene();
+
+            // Camera - much higher, looking at the horizon (as requested)
+            camera = new THREE.PerspectiveCamera(
+                52,
+                container.clientWidth / container.clientHeight,
+                0.05,
+                2000
+            );
+            camera.up.set(0, 1, 0);
+            camera.position.set(0, 18, 4);     // significantly higher
+            camera.lookAt(0, 4, 25);           // looking forward toward the horizon, not down
+
+            // Spark renderer (must be added to scene)
+            spark = new SparkRenderer({ renderer });
+            scene.add(spark);
+
+            // No FlyControls for look or movement — we handle everything ourselves
+            // to guarantee zero passive mouse influence on the camera.
+            controls = null;
+
+            // Subtle environment feel
+            scene.fog = new THREE.Fog(0x0a0a0a, 8, 22);
+
+            // === Custom direct mouse look (precise, no smoothing, correct inversion) ===
+            const canvas = renderer.domElement;
+
+            function applyLookRotation() {
+                // No clamping → fully free infinite rotation in all directions
+                const q = new THREE.Quaternion();
+                q.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+                camera.quaternion.copy(q);
+            }
+
+            function onPointerDown(e) {
+                // Only start look if it's a direct left click on the canvas itself
+                if (e.button !== 0 || e.target !== canvas) return;
+
+                isDraggingLook = true;
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+                canvas.style.cursor = 'crosshair';
+                claimKeyboardFor3D();
+
+                // Capture the pointer so we reliably get pointerup even if mouse leaves the window
+                try {
+                    canvas.setPointerCapture(e.pointerId);
+                } catch (err) {}
+            }
+
+            function onPointerMove(e) {
+                // Nuclear strict guard:
+                // 1. Must be in drag mode
+                // 2. Left mouse button must physically be down right now
+                if (!isDraggingLook || !(e.buttons & 1)) {
+                    isDraggingLook = false;
+                    return;
+                }
+
+                const deltaX = e.clientX - lastMouseX;
+                const deltaY = e.clientY - lastMouseY;
+
+                // Standard look behavior:
+                // Drag mouse right → view turns right (camera yaws so you look more to the right)
+                // Drag mouse left  → view turns left
+                yaw   -= deltaX * lookSensitivity;
+                pitch -= deltaY * lookSensitivity;
+
+                applyLookRotation();
+
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            }
+
+            function stopLookDrag() {
+                isDraggingLook = false;
+                canvas.style.cursor = '';
+            }
+
+            function onPointerUp(e) {
+                if (e.button !== 0) return;
+                stopLookDrag();
+                try {
+                    canvas.releasePointerCapture(e.pointerId);
+                } catch (err) {}
+            }
+
+            // Extra hard resets so look can never leak when the mouse button is released
+            document.addEventListener('pointercancel', stopLookDrag);
+            window.addEventListener('blur', stopLookDrag);
+
+            // Attach listeners
+            canvas.addEventListener('pointerdown', onPointerDown);
+            window.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('pointerup', onPointerUp);
+
+            // Initialize yaw/pitch from current camera orientation (after initial placement)
+            function initYawPitchFromCamera() {
+                const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+                yaw = euler.y;
+                pitch = euler.x;
+            }
+            // Call after first frameSplat or initial position
+            setTimeout(() => {
+                if (camera) initYawPitchFromCamera();
+            }, 50);
+
+            // Resize handler
+            window.addEventListener('resize', onResize);
+            onResize();
+
+            // Start render loop
+            renderer.setAnimationLoop(animate);
+
+            // First interaction hint auto-hide
+            setTimeout(() => {
+                if (viewerHints && !isLoaded) viewerHints.style.opacity = '0.6';
+            }, 6500);
+
+            // Ensure auto-rotate starts OFF (as requested)
+            autoRotate = false;
+            const initialAutoBtn = document.getElementById('auto-rotate-btn');
+            if (initialAutoBtn) {
+                initialAutoBtn.classList.remove('!bg-white/10', 'text-[#68f983]');
+            }
+        }
+
+        function onResize() {
+            if (!renderer || !camera) return;
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
+
+        function animate() {
+            const delta = clock.getDelta();
+
+            // No external controls for look/movement — everything is manual and strict
+            // (nothing to update here)
+
+            // === Custom snappy fly movement (no inertia) ===
+            if (camera) {
+                const moveSpeed = 9 * (keys['shift'] ? 5.0 : 1); // default speed halved per request, Shift still gives big boost
+                const forward = new THREE.Vector3();
+                const right = new THREE.Vector3();
+                const up = new THREE.Vector3(0, 1, 0);
+
+                camera.getWorldDirection(forward);
+                // Correct right vector for camera-relative strafing
+                // (forward × up gives the camera's true right direction)
+                right.crossVectors(forward, up).normalize();
+
+                const move = new THREE.Vector3();
+
+                if (keys['w']) move.add(forward);
+                if (keys['s']) move.sub(forward);
+                if (keys['a']) move.sub(right);
+                if (keys['d']) move.add(right);
+
+                // Vertical movement (E = straight up, Q = straight down) in world space.
+                // The model is rotated on load so this feels correct for the captured scene.
+                if (keys['e']) move.add(up);
+                if (keys['q']) move.sub(up);
+
+                if (move.lengthSq() > 0) {
+                    move.normalize().multiplyScalar(moveSpeed * delta);
+                    camera.position.add(move);
+                }
+            }
+
+            if (autoRotate && splatMesh && isLoaded) {
+                splatMesh.rotation.y += 0.0006;
+            }
+
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        function frameSplat() {
+            if (!splatMesh || !camera) return;
+
+            try {
+                const box = new THREE.Box3().setFromObject(splatMesh);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z) || 5.0;
+
+                const dist = maxDim * 0.85;
+
+                // Reset: much higher position, looking at the horizon (not up or down)
+                camera.up.set(0, 1, 0);
+                camera.position.set(
+                    center.x + dist * 0.1,
+                    center.y + dist * 2.2,   // way higher
+                    center.z + dist * 0.8
+                );
+
+                camera.lookAt(center.x, center.y + 1.5, center.z + 8);  // horizon level
+
+                // Sync custom direct look system after reset
+                const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+                yaw = euler.y;
+                pitch = euler.x;
+
+            } catch (e) {
+                camera.up.set(0, 1, 0);
+                camera.position.set(0.5, 5.5, 0.8);
+                camera.lookAt(0, 1.0, 0);
+
+                const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+                yaw = euler.y;
+                pitch = euler.x;
+            }
+        }
+
+        function resetCamera() {
+            if (!camera) return;
+            frameSplat();
+            autoRotate = false;
+            const btn = document.getElementById('auto-rotate-btn');
+            if (btn) btn.classList.remove('!bg-white/10', 'text-[#68f983]');
+
+            claimKeyboardFor3D();
+        }
+
+        function toggleAutoRotate() {
+            autoRotate = !autoRotate;
+
+            const desktopBtn = document.getElementById('auto-rotate-btn');
+            const mobileBtn = document.getElementById('mobile-auto-rotate');
+            const text = document.getElementById('auto-rotate-text');
+
+            const isActive = autoRotate;
+
+            if (desktopBtn) {
+                if (isActive) {
+                    desktopBtn.classList.add('!bg-white/10', 'text-[#68f983]');
+                } else {
+                    desktopBtn.classList.remove('!bg-white/10', 'text-[#68f983]');
+                }
+            }
+            if (text) text.textContent = isActive ? 'Rotating' : 'Auto-rotate';
+            if (mobileBtn) {
+                if (isActive) mobileBtn.classList.add('text-[#68f983]');
+                else mobileBtn.classList.remove('text-[#68f983]');
+            }
+
+            claimKeyboardFor3D();
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+            claimKeyboardFor3D();
+        }
+
+        function setSplatQuality(count) {
+            if (!splatMesh) return;
+            splatMesh.maxSplats = count;
+            claimKeyboardFor3D(); // so flying keys work immediately after clicking UI
+            console.log(`[SplatViewer] maxSplats set to ${count}`);
+        }
+
+        function showHelp() {
+            const modal = document.createElement('div');
+            modal.className = `fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-6`;
+            modal.innerHTML = `
+                <div class="glass-card rounded-3xl w-full max-w-lg overflow-hidden">
+                    <div class="p-7">
+                        <div class="flex items-center justify-between mb-5">
+                            <div class="text-xl font-semibold tracking-tight">Controls</div>
+                            <button class="text-gray-400 hover:text-white text-2xl leading-none" onclick="this.closest('.fixed').remove()">×</button>
+                        </div>
+                        
+                        <div class="space-y-4 text-sm">
+                            <div class="flex gap-4">
+                                <div class="w-9 text-right text-gray-400 shrink-0">WASD</div>
+                                <div>Fly / move camera</div>
+                            </div>
+                            <div class="flex gap-4">
+                                <div class="w-9 text-right text-gray-400 shrink-0">Mouse drag</div>
+                                <div>Look around (left click + drag)</div>
+                            </div>
+                            <div class="flex gap-4">
+                                <div class="w-9 text-right text-gray-400 shrink-0">E / Q</div>
+                                <div>Straight up / straight down</div>
+                            </div>
+                            <div class="flex gap-4">
+                                <div class="w-9 text-right text-gray-400 shrink-0">Shift</div>
+                                <div>Big speed boost</div>
+                            </div>
+                            <div class="flex gap-4">
+                                <div class="w-9 text-right text-gray-400 shrink-0"><span class="shortcut">R</span></div>
+                                <div>Reset camera position</div>
+                            </div>
+                            <div class="flex gap-4">
+                                <div class="w-9 text-right text-gray-400 shrink-0"><span class="shortcut">A</span></div>
+                                <div>Toggle auto-rotation</div>
+                            </div>
+                            <div class="flex gap-4">
+                                <div class="w-9 text-right text-gray-400 shrink-0"><span class="shortcut">F</span></div>
+                                <div>Toggle fullscreen</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white/5 px-7 py-4 text-xs text-gray-400 border-t border-white/10">
+                        Large scenes may run at lower frame rates on integrated graphics.
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Close on escape
+            const closeOnEsc = (e) => {
+                if (e.key === 'Escape') {
+                    modal.remove();
+                    document.removeEventListener('keydown', closeOnEsc);
+                }
+            };
+            document.addEventListener('keydown', closeOnEsc, { once: true });
+        }
+
+        function dismissSizeWarning() {
+            if (sizeWarning) {
+                sizeWarning.style.transition = 'opacity 200ms';
+                sizeWarning.style.opacity = '0';
+                setTimeout(() => sizeWarning.remove(), 220);
+            }
+            localStorage.setItem('splatSizeWarningDismissed', 'true');
+        }
+
+        function setupKeyboardShortcuts() {
+            // Special action keys
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+                const k = e.key.toLowerCase();
+
+                switch (k) {
+                    case 'r':
+                        claimKeyboardFor3D();
+                        resetCamera();
+                        break;
+                    // 'a' key for auto-rotate has been removed per user request
+                    // Auto-rotate can still be toggled by clicking the button in the UI
+                    // 'a' key auto-rotate binding removed per your request
+                    case 'a':
+                        break;
+                    case 'f':
+                        toggleFullscreen();
+                        break;
+                    case 'h':
+                    case '?':
+                        showHelp();
+                        break;
+                    case 'escape':
+                        if (document.fullscreenElement) {
+                            document.exitFullscreen();
+                        }
+                        break;
+                }
+            });
+
+            // === Dedicated movement key tracking (WASD + E up + Q down + Shift boost) ===
+            const movementKeys = ['w', 'a', 's', 'd', 'e', 'q', 'shift'];
+
+            function handleMovementKey(e, isDown) {
+                const raw = e.key;
+                const k = raw.toLowerCase();
+
+                if (k === 'shift' || movementKeys.includes(k)) {
+                    claimKeyboardFor3D();
+
+                    if (k === 'shift') {
+                        keys['shift'] = isDown;
+                    } else {
+                        keys[k] = isDown;
+                        e.preventDefault();
+                    }
+                }
+            }
+
+            document.addEventListener('keydown', (e) => handleMovementKey(e, true));
+            document.addEventListener('keyup',   (e) => handleMovementKey(e, false));
+
+            // When user clicks anywhere on the 3D area, take keyboard focus away from UI
+            container.addEventListener('pointerdown', () => {
+                claimKeyboardFor3D();
+            });
+
+            // Hide hints on first interaction
+            const hideHints = () => {
+                if (viewerHints) viewerHints.style.display = 'none';
+                container.removeEventListener('pointerdown', hideHints);
+            };
+            container.addEventListener('pointerdown', hideHints, { once: true });
+        }
+
+        function restoreWarningState() {
+            if (localStorage.getItem('splatSizeWarningDismissed') === 'true' && sizeWarning) {
+                sizeWarning.style.display = 'none';
+            }
+        }
+
+        // Boot the viewer
+        async function init() {
+            initThreeJS();
+            setupKeyboardShortcuts();
+            restoreWarningState();
+
+            // Begin loading the (very large) splat
+            await loadSplatWithProgress();
+        }
+
+        // Start everything
+        init().catch(err => {
+            console.error('Failed to initialize viewer:', err);
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+                overlay.innerHTML = `
+                    <div class="text-center p-6">
+                        <div class="text-red-400 mb-3 text-lg">Failed to load the 3D scene</div>
+                        <div class="text-sm text-gray-400 max-w-md mx-auto">
+                            ${err.message || 'Unknown error'}<br><br>
+                            <strong>For GitHub:</strong> Host your compressed splat (.spz / .sog) externally 
+                            and set <code>REMOTE_SPLAT_URL</code> near the top of the script in this file.
+                        </div>
+                    </div>
+                `;
+            }
+        });
+
+        // Expose control functions to the global scope so HTML onclick attributes work
+        window.toggleAutoRotate = toggleAutoRotate;
+        window.resetCamera = resetCamera;
+        window.setSplatQuality = setSplatQuality;
+        window.showHelp = showHelp;
+        window.frameSplat = frameSplat;
+
+        // Also keep the debug object
+        window.SPLAT_DEBUG = { resetCamera, toggleAutoRotate, frameSplat, setSplatQuality };
+    </script>
+</body>
+</html>
