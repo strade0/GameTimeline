@@ -415,16 +415,16 @@
 
             // === SPLAT FILE CONFIGURATION ===
             //
-            // Because GitHub has strict file size limits (~100 MB hard limit, and repos get slow with big files),
-            // the recommended approach for anything over ~20-30 MB is to host the splat file externally.
+            // GitHub repo size limits make it impractical to commit large splat files.
+            // We host the compressed splat via GitHub Releases and load it remotely.
             //
-            // Option 1 (Recommended): Load from a remote URL (GitHub Releases, Cloudflare R2, S3, etc.)
-            // Example: "https://github.com/yourname/yourrepo/releases/download/v1.0/scene.spz"
-            const REMOTE_SPLAT_URL = null;
+            // To use a local file instead (for development), set this to null.
+            const REMOTE_SPLAT_URL = "https://github.com/strade0/GameTimeline/releases/download/Gaussian/NewsestCompressed.spz";
 
-            // Option 2: Local files (only realistic if the compressed file is very small, ideally < 25 MB)
+            // Local file fallbacks (used only when REMOTE_SPLAT_URL is null)
+            // Useful for local development. Keep files small (< ~25 MB) if committing to GitHub.
             const candidates = [
-                './Compressed.spz',     // preferred
+                './Compressed.spz',
                 './PLYcompressed.ply',
                 './Newsest.sog',
                 './Newsest.ksplat',
@@ -458,9 +458,10 @@
 
             if (!splatURL || !response || !response.ok) {
                 throw new Error(
-                    'No splat file found.\n' +
-                    '→ For GitHub, host your .spz/.sog file externally and set REMOTE_SPLAT_URL above.\n' +
-                    '→ Or place a small compressed file (ideally < 25 MB) in the same folder as splat.html.'
+                    'No splat file found.\n\n' +
+                    '→ REMOTE_SPLAT_URL is currently set to a GitHub Release asset.\n' +
+                    '   Make sure the release asset "NewsestCompressed.spz" exists and is public.\n\n' +
+                    '→ For local development, set REMOTE_SPLAT_URL = null and place a small .spz/.ply in this folder.'
                 );
             }
 
@@ -1059,11 +1060,13 @@
             if (overlay) {
                 overlay.innerHTML = `
                     <div class="text-center p-6">
-                        <div class="text-red-400 mb-3 text-lg">Failed to load the 3D scene</div>
-                        <div class="text-sm text-gray-400 max-w-md mx-auto">
-                            ${err.message || 'Unknown error'}<br><br>
-                            <strong>For GitHub:</strong> Host your compressed splat (.spz / .sog) externally 
-                            and set <code>REMOTE_SPLAT_URL</code> near the top of the script in this file.
+                        <div class="text-red-400 mb-3 text-lg font-semibold">Failed to load the 3D scene</div>
+                        <div class="text-sm text-gray-300 max-w-lg mx-auto whitespace-pre-line">
+                            ${err.message || 'Unknown error'}
+                        </div>
+                        <div class="text-xs text-gray-500 mt-4">
+                            Make sure you're running a local server (e.g. <code>python -m http.server</code>)<br>
+                            and that the remote splat URL is publicly accessible.
                         </div>
                     </div>
                 `;
