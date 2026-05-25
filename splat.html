@@ -195,6 +195,14 @@
                 <span>Shift = boost</span>
             </div>
         </div>
+
+        <!-- FPS counter (click to toggle visibility). Extremely useful for tuning quality on your machine. -->
+        <div id="fps-counter"
+             onclick="toggleFpsCounter()"
+             class="absolute top-4 right-4 z-20 px-2.5 py-1 text-[10px] font-mono tabular-nums rounded-md bg-black/60 border border-white/10 text-[#68f983] cursor-pointer select-none md:block"
+             title="Click to hide/show • Target 35+ FPS comfortable on low-end hardware">
+            -- FPS
+        </div>
     </div>
 
     <!-- Left Info Panel -->
@@ -203,7 +211,7 @@
             <div class="panel-label mb-3">Current Asset</div>
             
             <div class="font-semibold text-lg tracking-tight mb-1">Newsest.ply</div>
-            <div class="text-gray-400 text-xs mb-4">5,000,000 Gaussian splats • 1.24 GB</div>
+            <div class="text-gray-400 text-xs mb-4">5M source splats • ~292 MB (adaptive LoD)</div>
 
             <div class="space-y-2 text-sm">
                 <div class="flex justify-between">
@@ -213,6 +221,24 @@
                 <div class="flex justify-between">
                     <span class="text-gray-400">SH Degree</span>
                     <span class="font-mono text-xs text-white/80">3 (full)</span>
+                </div>
+            </div>
+
+            <!-- Quality selector (the #1 way to make it run on potatoes) -->
+            <div class="mt-4 pt-4 border-t border-white/10">
+                <div class="panel-label mb-2">Render Quality</div>
+                <div class="flex gap-1 text-[11px]">
+                    <button id="q-potato" onclick="setQualityLevel('potato')"
+                            class="flex-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 active:bg-white/15 transition-colors">Potato</button>
+                    <button id="q-low" onclick="setQualityLevel('low')"
+                            class="flex-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 active:bg-white/15 transition-colors">Low</button>
+                    <button id="q-medium" onclick="setQualityLevel('medium')"
+                            class="flex-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 active:bg-white/15 transition-colors">Med</button>
+                    <button id="q-high" onclick="setQualityLevel('high')"
+                            class="flex-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 active:bg-white/15 transition-colors">High</button>
+                </div>
+                <div class="text-[10px] text-gray-500 mt-1.5 leading-tight">
+                    Start on <span class="text-[#68f983]">Low</span> or <span class="text-[#68f983]">Potato</span>. Raise only if you have a strong GPU.
                 </div>
             </div>
 
@@ -256,10 +282,10 @@
         <div class="flex gap-3">
             <i class="ph ph-warning text-amber-400 mt-0.5 text-lg shrink-0"></i>
             <div class="flex-1 min-w-0">
-                <div class="font-semibold text-amber-400 text-xs tracking-wider mb-1">LARGE ASSET</div>
+                <div class="font-semibold text-amber-400 text-xs tracking-wider mb-1">LARGE ASSET (~292 MB)</div>
                 <div class="text-gray-300 text-[13px] leading-snug">
-                    This model is <span class="font-semibold text-white">1.24 GB</span>. 
-                    First load may take a long time depending on your connection.
+                    First load can take a while depending on your connection. 
+                    Use the <b>Quality</b> buttons (left panel on desktop) for best performance on lower-end hardware.
                 </div>
                 <button onclick="dismissSizeWarning()"
                         class="mt-3 text-[11px] text-gray-400 hover:text-white underline underline-offset-2">
@@ -280,7 +306,7 @@
                     <i class="ph ph-cube text-4xl text-[#68f983]"></i>
                 </div>
                 <h2 class="text-2xl font-semibold tracking-tight">Loading Gaussian Splat</h2>
-                <p class="text-gray-400 mt-1.5 text-sm">Newsest • 5 million splats</p>
+                <p class="text-gray-400 mt-1.5 text-sm">Newsest • 5M source (LoD on low-end GPUs)</p>
             </div>
 
             <!-- Progress -->
@@ -297,7 +323,7 @@
                 <div class="flex justify-between text-xs">
                     <div>
                         <span id="progress-mb" class="font-mono text-[#68f983]">0</span>
-                        <span class="text-gray-500">/ 1,240 MB</span>
+                        <span class="text-gray-500">/ ~292 MB</span>
                     </div>
                     <div id="progress-time" class="text-gray-500 font-mono tabular-nums">calculating...</div>
                 </div>
@@ -305,8 +331,7 @@
 
             <div class="mt-6 text-center">
                 <p class="text-xs text-gray-500 max-w-[260px] mx-auto">
-                    This is a high-detail 3D Gaussian Splatting reconstruction. 
-                    The file is large by design.
+                    High-detail 3DGS. Uses adaptive Level-of-Detail (see Quality buttons) so it runs better on integrated graphics and older GPUs.
                 </p>
             </div>
         </div>
@@ -327,6 +352,15 @@
         // =====================================================
         // GAUSSIAN SPLAT VIEWER - Spark + Three.js
         // Single-file implementation matching Game Dev Tracker design
+        //
+        // Performance notes (2026-05):
+        // - Using PLY (~292 MB) because remote .spz is not loading right now.
+        // - All the heavy optimizations are still active:
+        //     • pixelRatio=1 + antialias=false
+        //     • Conservative SparkRenderer LoD defaults + live Quality buttons
+        //     • Auto "Potato" mode on low-end devices
+        //     • FPS counter for tuning
+        // These make a big difference for integrated graphics / older hardware.
         // =====================================================
 
         import * as THREE from "three";
@@ -352,6 +386,12 @@
         let isLoaded = false;
         let clock = new THREE.Clock();
 
+        // FPS tracking (lightweight, no external libs)
+        let frameCount = 0;
+        let lastFpsUpdate = 0;
+        let currentFps = 0;
+        let fpsVisible = true;
+
         // Keyboard state for custom fly movement
         const keys = {};
 
@@ -369,11 +409,11 @@
         let lastMouseX = 0;
         let lastMouseY = 0;
 
-        // Load progress tracking (for 1.24 GB file)
+        // Load progress tracking (for ~292 MB PLY file)
         let loadStartTime = 0;
         let lastProgressUpdate = 0;
         let downloadBytes = 0;
-        let totalBytes = 1240000000; // ~1.24 GB (will be refined by Content-Length if available)
+        let totalBytes = 306000000; // ~292 MB for PLYcompressed.ply (refined by Content-Length at runtime)
 
         function updateLoadingProgress(receivedBytes, total = totalBytes) {
             if (!loadingOverlay || loadingOverlay.classList.contains('loading-hidden')) return;
@@ -415,19 +455,17 @@
 
             // === SPLAT FILE CONFIGURATION ===
             //
-            // GitHub repo size limits make it impractical to commit large splat files.
-            // We host the compressed splat via GitHub Releases and load it remotely.
-            //
-            // To use a local file instead (for development), set this to null.
+            // Using the PLY because .spz remote is currently not loading.
+            // PLYcompressed.ply is ~292 MB (much larger than the .spz alternative).
+            // The runtime quality/LoD controls below still make a big difference for low-end GPUs.
             const REMOTE_SPLAT_URL = "https://assets.hellobruh.com/PLYcompressed.ply";
 
             // Local file fallbacks (used only when REMOTE_SPLAT_URL is null)
-            // Useful for local development. Keep files small (< ~25 MB) if committing to GitHub.
+            // Matches the actual files present in this folder.
             const candidates = [
-                './Compressed.spz',
                 './PLYcompressed.ply',
-                './Newsest.sog',
-                './Newsest.ksplat',
+                './NewsestCompressed.spz',
+                './Compressed.spz',   // legacy name
                 './Newsest.ply'
             ];
 
@@ -459,9 +497,9 @@
             if (!splatURL || !response || !response.ok) {
                 throw new Error(
                     'No splat file found.\n\n' +
-                    '→ REMOTE_SPLAT_URL is currently set to a GitHub Release asset.\n' +
-                    '   Make sure the release asset "NewsestCompressed.spz" exists and is public.\n\n' +
-                    '→ For local development, set REMOTE_SPLAT_URL = null and place a small .spz/.ply in this folder.'
+                    '→ REMOTE_SPLAT_URL is currently set to the PLY on your CDN.\n' +
+                    '   Make sure https://assets.hellobruh.com/PLYcompressed.ply is public.\n\n' +
+                    '→ For local dev: set REMOTE_SPLAT_URL = null and place PLYcompressed.ply (or .spz) next to this file.'
                 );
             }
 
@@ -505,10 +543,9 @@
                 // This should make E (up) and Q (down) feel correct.
                 splatMesh.rotation.x = Math.PI;
 
-                // Performance cap
-                if (splatMesh) {
-                    splatMesh.maxSplats = 1_800_000;
-                }
+                // Note: We no longer use the legacy splatMesh.maxSplats here.
+                // SparkRenderer lodSplatCount + lodSplatScale (set at creation) provide much better
+                // distance-aware quality scaling. Quality can be changed live via setQualityLevel().
 
                 // Clean up the object URL
                 setTimeout(() => URL.revokeObjectURL(objectURL), 30000);
@@ -585,6 +622,9 @@
                         hideLoadingOverlay();
                         if (sizeWarning) sizeWarning.style.display = 'none';
 
+                        // Make sure quality buttons reflect whatever the auto-detect or user chose
+                        setTimeout(updateQualityButtons, 140);
+
                         if (shouldForce) {
                             console.warn('%c[SplatViewer] Forced reveal after timeout — Spark may expose data differently on this model. Scene should still render.', 'color:#f59e0b');
                         }
@@ -620,14 +660,19 @@
         }
 
         function initThreeJS() {
-            // Renderer
+            // Renderer — heavily optimized for low-end / integrated GPUs ("potato" mode)
             renderer = new THREE.WebGLRenderer({
-                antialias: true,
+                antialias: false,                 // MSAA is very expensive on iGPUs
                 alpha: false,
                 powerPreference: "high-performance",
+                preserveDrawingBuffer: false,
             });
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            // Force 1x pixel ratio for maximum compatibility and FPS.
+            // High-DPI (2x/3x) screens otherwise render 4-9x the pixels.
+            renderer.setPixelRatio(1);
             renderer.setSize(container.clientWidth, container.clientHeight);
+
+            // Cheaper tone mapping (or NONE for even lower cost on very weak GPUs)
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.0;
             container.appendChild(renderer.domElement);
@@ -646,9 +691,34 @@
             camera.position.set(0, 18, 4);     // significantly higher
             camera.lookAt(0, 4, 25);           // looking forward toward the horizon, not down
 
-            // Spark renderer (must be added to scene)
-            spark = new SparkRenderer({ renderer });
+            // Spark renderer — tuned for broad compatibility (even with the larger ~292 MB PLY).
+            // These values are conservative so the viewer can run on integrated graphics / older laptops.
+            spark = new SparkRenderer({
+                renderer,
+                maxStdDev: 2.25,
+                enableLod: true,
+                lodSplatScale: 0.42,
+                lodSplatCount: 520_000,
+            });
             scene.add(spark);
+
+            // Auto-detect low-end devices and start even more conservative
+            // (phones, 4-core CPUs, high-DPI laptops with weak iGPU, etc.)
+            try {
+                const isLowEnd = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                                 (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
+                                 (window.devicePixelRatio && window.devicePixelRatio >= 2);
+                if (isLowEnd) {
+                    currentQualityLevel = 'potato';
+                    // Apply immediately
+                    if (typeof spark.lodSplatScale === 'number') spark.lodSplatScale = 0.26;
+                    if (typeof spark.lodSplatCount === 'number')  spark.lodSplatCount  = 260_000;
+                    if (typeof spark.maxStdDev === 'number')      spark.maxStdDev      = 1.95;
+                    console.log('%c[SplatViewer] Low-end device detected — starting in Potato quality mode', 'color:#f59e0b');
+                } else {
+                    currentQualityLevel = 'low';
+                }
+            } catch (e) { currentQualityLevel = 'low'; }
 
             // No FlyControls for look or movement — we handle everything ourselves
             // to guarantee zero passive mouse influence on the camera.
@@ -745,6 +815,7 @@
             onResize();
 
             // Start render loop
+            lastFpsUpdate = (typeof performance !== 'undefined' ? performance.now() : Date.now());
             renderer.setAnimationLoop(animate);
 
             // First interaction hint auto-hide
@@ -758,6 +829,9 @@
             if (initialAutoBtn) {
                 initialAutoBtn.classList.remove('!bg-white/10', 'text-[#68f983]');
             }
+
+            // Seed the quality buttons (auto-detect may have already chosen 'potato')
+            setTimeout(updateQualityButtons, 80);
         }
 
         function onResize() {
@@ -771,6 +845,17 @@
 
         function animate() {
             const delta = clock.getDelta();
+
+            // === FPS tracking (cheap, updates twice per second) ===
+            frameCount++;
+            const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+            if (now - lastFpsUpdate > 480) {
+                const dt = now - lastFpsUpdate || 480;
+                currentFps = Math.round(frameCount * 1000 / dt);
+                frameCount = 0;
+                lastFpsUpdate = now;
+                updateFpsDisplay();
+            }
 
             // No external controls for look/movement — everything is manual and strict
             // (nothing to update here)
@@ -896,10 +981,87 @@
         }
 
         function setSplatQuality(count) {
+            // Legacy helper — still works for direct maxSplats if the mesh exposes it.
             if (!splatMesh) return;
-            splatMesh.maxSplats = count;
-            claimKeyboardFor3D(); // so flying keys work immediately after clicking UI
-            console.log(`[SplatViewer] maxSplats set to ${count}`);
+            if (typeof splatMesh.maxSplats === 'number') splatMesh.maxSplats = count;
+            claimKeyboardFor3D();
+            console.log(`[SplatViewer] (legacy) maxSplats set to ${count}`);
+        }
+
+        // Live quality presets using Spark's excellent LoD system.
+        // These are the main way to make the viewer run on potatoes.
+        let currentQualityLevel = 'low';
+
+        function setQualityLevel(level) {
+            if (!spark) return;
+
+            const presets = {
+                potato: { lodSplatScale: 0.26, lodSplatCount: 260_000, maxStdDev: 1.95, label: 'Potato' },
+                low:    { lodSplatScale: 0.42, lodSplatCount: 520_000, maxStdDev: 2.25, label: 'Low'    },
+                medium: { lodSplatScale: 0.68, lodSplatCount: 950_000, maxStdDev: 2.55, label: 'Medium' },
+                high:   { lodSplatScale: 0.95, lodSplatCount: 1_600_000, maxStdDev: 2.75, label: 'High'   }
+            };
+
+            const p = presets[level] || presets.low;
+            currentQualityLevel = level;
+
+            // Apply to SparkRenderer (these are the live controls)
+            if (typeof spark.lodSplatScale === 'number') spark.lodSplatScale = p.lodSplatScale;
+            if (typeof spark.lodSplatCount === 'number')  spark.lodSplatCount  = p.lodSplatCount;
+            if (typeof spark.maxStdDev === 'number')      spark.maxStdDev      = p.maxStdDev;
+
+            // Also try SplatMesh in case it has direct knobs
+            if (splatMesh) {
+                if (typeof splatMesh.lodScale === 'number') splatMesh.lodScale = p.lodSplatScale;
+                if (typeof splatMesh.maxSplats === 'number') splatMesh.maxSplats = p.lodSplatCount;
+            }
+
+            // Update any UI buttons
+            updateQualityButtons();
+
+            claimKeyboardFor3D();
+            console.log(`[SplatViewer] Quality → ${p.label} (scale=${p.lodSplatScale}, count=${p.lodSplatCount})`);
+        }
+
+        function updateQualityButtons() {
+            const levels = ['potato', 'low', 'medium', 'high'];
+            levels.forEach(lvl => {
+                const btn = document.getElementById(`q-${lvl}`);
+                if (!btn) return;
+                if (lvl === currentQualityLevel) {
+                    btn.classList.add('!bg-[#68f983]', '!text-black', 'font-semibold');
+                    btn.classList.remove('text-white/80');
+                } else {
+                    btn.classList.remove('!bg-[#68f983]', '!text-black', 'font-semibold');
+                    btn.classList.add('text-white/80');
+                }
+            });
+        }
+
+        function updateFpsDisplay() {
+            const el = document.getElementById('fps-counter');
+            if (!el) return;
+
+            if (!fpsVisible) {
+                el.style.display = 'none';
+                return;
+            }
+            el.style.display = '';
+
+            let color = '#f87171'; // red
+            if (currentFps >= 55) color = '#68f983';
+            else if (currentFps >= 40) color = '#fbbf24';
+            else if (currentFps >= 30) color = '#fb923c';
+
+            el.style.color = color;
+            el.textContent = currentFps + ' FPS';
+        }
+
+        function toggleFpsCounter() {
+            fpsVisible = !fpsVisible;
+            const el = document.getElementById('fps-counter');
+            if (el) el.style.display = fpsVisible ? '' : 'none';
+            claimKeyboardFor3D();
         }
 
         function showHelp() {
@@ -942,10 +1104,18 @@
                                 <div class="w-9 text-right text-gray-400 shrink-0"><span class="shortcut">F</span></div>
                                 <div>Toggle fullscreen</div>
                             </div>
+                            <div class="flex gap-4">
+                                <div class="w-9 text-right text-gray-400 shrink-0">Quality buttons</div>
+                                <div>Left panel (desktop) — start on <b>Low/Potato</b></div>
+                            </div>
+                            <div class="flex gap-4">
+                                <div class="w-9 text-right text-gray-400 shrink-0">FPS</div>
+                                <div>Top-right pill (click to hide). Aim for 35+ FPS.</div>
+                            </div>
                         </div>
                     </div>
                     <div class="bg-white/5 px-7 py-4 text-xs text-gray-400 border-t border-white/10">
-                        Large scenes may run at lower frame rates on integrated graphics.
+                        Use the Quality buttons (left panel) to drop to "Potato" or "Low" on integrated graphics or older laptops.
                     </div>
                 </div>
             `;
@@ -1077,11 +1247,13 @@
         window.toggleAutoRotate = toggleAutoRotate;
         window.resetCamera = resetCamera;
         window.setSplatQuality = setSplatQuality;
+        window.setQualityLevel = setQualityLevel;
+        window.toggleFpsCounter = toggleFpsCounter;
         window.showHelp = showHelp;
         window.frameSplat = frameSplat;
 
         // Also keep the debug object
-        window.SPLAT_DEBUG = { resetCamera, toggleAutoRotate, frameSplat, setSplatQuality };
+        window.SPLAT_DEBUG = { resetCamera, toggleAutoRotate, frameSplat, setSplatQuality, setQualityLevel };
     </script>
 </body>
 </html>
