@@ -199,7 +199,7 @@
         <!-- FPS counter (click to toggle visibility). Extremely useful for tuning quality on your machine. -->
         <div id="fps-counter"
              onclick="toggleFpsCounter()"
-             class="absolute top-4 right-4 z-20 px-2.5 py-1 text-[10px] font-mono tabular-nums rounded-md bg-black/60 border border-white/10 text-[#68f983] cursor-pointer select-none md:block"
+             class="absolute top-4 right-4 z-20 px-2.5 py-1 text-[10px] font-mono tabular-nums rounded-md bg-black/60 border border-white/10 text-[#68f983] cursor-pointer select-none"
              title="Click to hide/show • Target 35+ FPS comfortable on low-end hardware">
             -- FPS
         </div>
@@ -224,26 +224,9 @@
                 </div>
             </div>
 
-            <!-- Quality selector (the #1 way to make it run on potatoes) -->
-            <div class="mt-4 pt-4 border-t border-white/10">
-                <div class="panel-label mb-2">Render Quality</div>
-                <div class="flex gap-1 text-[11px]">
-                    <button id="q-potato" onclick="setQualityLevel('potato')"
-                            class="flex-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 active:bg-white/15 transition-colors">Potato</button>
-                    <button id="q-low" onclick="setQualityLevel('low')"
-                            class="flex-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 active:bg-white/15 transition-colors">Low</button>
-                    <button id="q-medium" onclick="setQualityLevel('medium')"
-                            class="flex-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 active:bg-white/15 transition-colors">Med</button>
-                    <button id="q-high" onclick="setQualityLevel('high')"
-                            class="flex-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 active:bg-white/15 transition-colors">High</button>
-                </div>
-                <div class="text-[10px] text-gray-500 mt-1.5 leading-tight">
-                    Start on <span class="text-[#68f983]">Low</span> or <span class="text-[#68f983]">Potato</span>. Raise only if you have a strong GPU.
-                </div>
-            </div>
-
             <div class="mt-4 pt-4 border-t border-white/10 text-[11px] text-gray-500 leading-snug">
-                High-fidelity reconstruction from the 3D Modelling module.
+                High-fidelity reconstruction from the 3D Modelling module.<br>
+                <span class="text-[#68f983]">Quality locked</span> for best compatibility (Potato on mobile, Low on desktop).
             </div>
         </div>
     </div>
@@ -274,6 +257,7 @@
                 <i class="ph ph-question"></i>
             </button>
         </div>
+        <div class="text-center text-[10px] text-white/40 mt-1.5">Drag 1 finger to look • 2 fingers to move</div>
     </div>
 
     <!-- Large Asset Warning Banner (always visible until dismissed) -->
@@ -285,7 +269,7 @@
                 <div class="font-semibold text-amber-400 text-xs tracking-wider mb-1">LARGE ASSET (~292 MB)</div>
                 <div class="text-gray-300 text-[13px] leading-snug">
                     First load can take a while depending on your connection. 
-                    Use the <b>Quality</b> buttons (left panel on desktop) for best performance on lower-end hardware.
+                    Quality is locked for best compatibility on all devices.
                 </div>
                 <button onclick="dismissSizeWarning()"
                         class="mt-3 text-[11px] text-gray-400 hover:text-white underline underline-offset-2">
@@ -331,7 +315,7 @@
 
             <div class="mt-6 text-center">
                 <p class="text-xs text-gray-500 max-w-[260px] mx-auto">
-                    High-detail 3DGS. Uses adaptive Level-of-Detail (see Quality buttons) so it runs better on integrated graphics and older GPUs.
+                    High-detail 3DGS with forced conservative quality (Potato on mobile, Low on desktop).
                 </p>
             </div>
         </div>
@@ -355,17 +339,20 @@
         //
         // Performance notes (2026-05):
         // - Using PLY (~292 MB) because remote .spz is not loading right now.
-        // - All the heavy optimizations are still active:
+        // - Heavy optimizations active:
         //     • pixelRatio=1 + antialias=false
-        //     • Conservative SparkRenderer LoD defaults + live Quality buttons
-        //     • Auto "Potato" mode on low-end devices
-        //     • FPS counter for tuning
-        // These make a big difference for integrated graphics / older hardware.
+        //     • Forced conservative LoD (Potato on mobile, Low on desktop — locked, no selector)
+        //     • Full touch controls on mobile (1 finger = look, 2 fingers = fly)
+        //     • FPS counter
+        // Designed to run well on phones and low-end laptops.
         // =====================================================
 
         import * as THREE from "three";
         import { FlyControls } from "three/addons/controls/FlyControls.js";
         import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
+
+        // Initialize touch movement vector now that THREE is loaded
+        touchMoveVec = new THREE.Vector3();
 
         // DOM references
         const container = document.getElementById('viewer-container');
@@ -385,6 +372,11 @@
         let autoRotate = false;
         let isLoaded = false;
         let clock = new THREE.Clock();
+
+        // Device detection (used for forced quality + touch controls)
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                         ('ontouchstart' in window) ||
+                         (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
 
         // FPS tracking (lightweight, no external libs)
         let frameCount = 0;
@@ -408,6 +400,13 @@
         let pitch = 0;
         let lastMouseX = 0;
         let lastMouseY = 0;
+
+        // Touch state for mobile fly controls
+        let touchLookActive = false;
+        let lastTouchX = 0;
+        let lastTouchY = 0;
+        let touchMoveVec = null;   // initialized after THREE is imported
+        let lastPinchDistance = 0;
 
         // Load progress tracking (for ~292 MB PLY file)
         let loadStartTime = 0;
@@ -622,8 +621,8 @@
                         hideLoadingOverlay();
                         if (sizeWarning) sizeWarning.style.display = 'none';
 
-                        // Make sure quality buttons reflect whatever the auto-detect or user chose
-                        setTimeout(updateQualityButtons, 140);
+                        // Quality is forced at startup — nothing to update in UI
+
 
                         if (shouldForce) {
                             console.warn('%c[SplatViewer] Forced reveal after timeout — Spark may expose data differently on this model. Scene should still render.', 'color:#f59e0b');
@@ -691,34 +690,24 @@
             camera.position.set(0, 18, 4);     // significantly higher
             camera.lookAt(0, 4, 25);           // looking forward toward the horizon, not down
 
-            // Spark renderer — tuned for broad compatibility (even with the larger ~292 MB PLY).
-            // These values are conservative so the viewer can run on integrated graphics / older laptops.
+            // Spark renderer — forced conservative quality (no user selector anymore)
+            // Mobile → Potato (lowest)
+            // Desktop → Low (good balance, user said higher presets look similar)
+            const qualityPreset = isMobile
+                ? { lodSplatScale: 0.26, lodSplatCount: 260_000, maxStdDev: 1.95, name: 'Potato (forced on mobile)' }
+                : { lodSplatScale: 0.42, lodSplatCount: 520_000, maxStdDev: 2.25, name: 'Low (forced on desktop)' };
+
             spark = new SparkRenderer({
                 renderer,
-                maxStdDev: 2.25,
+                maxStdDev: qualityPreset.maxStdDev,
                 enableLod: true,
-                lodSplatScale: 0.42,
-                lodSplatCount: 520_000,
+                lodSplatScale: qualityPreset.lodSplatScale,
+                lodSplatCount: qualityPreset.lodSplatCount,
             });
             scene.add(spark);
 
-            // Auto-detect low-end devices and start even more conservative
-            // (phones, 4-core CPUs, high-DPI laptops with weak iGPU, etc.)
-            try {
-                const isLowEnd = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                                 (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
-                                 (window.devicePixelRatio && window.devicePixelRatio >= 2);
-                if (isLowEnd) {
-                    currentQualityLevel = 'potato';
-                    // Apply immediately
-                    if (typeof spark.lodSplatScale === 'number') spark.lodSplatScale = 0.26;
-                    if (typeof spark.lodSplatCount === 'number')  spark.lodSplatCount  = 260_000;
-                    if (typeof spark.maxStdDev === 'number')      spark.maxStdDev      = 1.95;
-                    console.log('%c[SplatViewer] Low-end device detected — starting in Potato quality mode', 'color:#f59e0b');
-                } else {
-                    currentQualityLevel = 'low';
-                }
-            } catch (e) { currentQualityLevel = 'low'; }
+            currentQualityLevel = isMobile ? 'potato' : 'low';
+            console.log(`%c[SplatViewer] Quality forced to ${qualityPreset.name}`, 'color:#68f983');
 
             // No FlyControls for look or movement — we handle everything ourselves
             // to guarantee zero passive mouse influence on the camera.
@@ -799,6 +788,125 @@
             window.addEventListener('pointermove', onPointerMove);
             window.addEventListener('pointerup', onPointerUp);
 
+            // =====================================================
+            // MOBILE TOUCH CONTROLS
+            // 1 finger  = look around
+            // 2 fingers = vertical drag = forward/back, horizontal = strafe, pinch = up/down
+            // =====================================================
+            if (isMobile) {
+                let activeTouchCount = 0;
+
+                function getTouchDistance(touches) {
+                    if (touches.length < 2) return 0;
+                    const dx = touches[0].clientX - touches[1].clientX;
+                    const dy = touches[0].clientY - touches[1].clientY;
+                    return Math.hypot(dx, dy);
+                }
+
+                function getTouchMidpoint(touches) {
+                    if (touches.length < 2) return { x: 0, y: 0 };
+                    return {
+                        x: (touches[0].clientX + touches[1].clientX) / 2,
+                        y: (touches[0].clientY + touches[1].clientY) / 2
+                    };
+                }
+
+                canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    activeTouchCount = e.touches.length;
+
+                    if (e.touches.length === 1) {
+                        // Single finger → start look
+                        touchLookActive = true;
+                        lastTouchX = e.touches[0].clientX;
+                        lastTouchY = e.touches[0].clientY;
+                        touchMoveVec.set(0, 0, 0);
+                    } else if (e.touches.length === 2) {
+                        // Two fingers → start movement
+                        touchLookActive = false;
+                        const mid = getTouchMidpoint(e.touches);
+                        lastTouchX = mid.x;
+                        lastTouchY = mid.y;
+                        lastPinchDistance = getTouchDistance(e.touches);
+                        touchMoveVec.set(0, 0, 0);
+                    }
+                }, { passive: false });
+
+                canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    const touches = e.touches;
+
+                    if (touches.length === 1 && touchLookActive) {
+                        // 1 finger drag = look
+                        const dx = touches[0].clientX - lastTouchX;
+                        const dy = touches[0].clientY - lastTouchY;
+
+                        yaw   -= dx * lookSensitivity * 1.15;   // slightly higher sensitivity on touch
+                        pitch -= dy * lookSensitivity * 1.15;
+
+                        applyLookRotation();
+
+                        lastTouchX = touches[0].clientX;
+                        lastTouchY = touches[0].clientY;
+
+                    } else if (touches.length === 2) {
+                        // 2 finger gestures for movement
+                        const mid = getTouchMidpoint(touches);
+                        const dx = mid.x - lastTouchX;
+                        const dy = mid.y - lastTouchY;
+
+                        const forward = new THREE.Vector3();
+                        const right = new THREE.Vector3();
+                        const up = new THREE.Vector3(0, 1, 0);
+                        camera.getWorldDirection(forward);
+                        right.crossVectors(forward, up).normalize();
+
+                        const speed = 0.035; // tune for feel
+
+                        // Vertical two-finger drag = forward/back
+                        if (Math.abs(dy) > Math.abs(dx)) {
+                            touchMoveVec.add(forward.clone().multiplyScalar(-dy * speed));
+                        } else {
+                            // Horizontal = strafe
+                            touchMoveVec.add(right.clone().multiplyScalar(dx * speed));
+                        }
+
+                        // Pinch = up/down
+                        const currentDist = getTouchDistance(touches);
+                        if (lastPinchDistance > 0) {
+                            const pinchDelta = currentDist - lastPinchDistance;
+                            touchMoveVec.add(up.clone().multiplyScalar(pinchDelta * 0.028));
+                        }
+                        lastPinchDistance = currentDist;
+
+                        lastTouchX = mid.x;
+                        lastTouchY = mid.y;
+                    }
+                }, { passive: false });
+
+                canvas.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    activeTouchCount = e.touches.length;
+                    if (e.touches.length === 0) {
+                        touchLookActive = false;
+                        touchMoveVec.set(0, 0, 0);
+                        lastPinchDistance = 0;
+                    } else if (e.touches.length === 1) {
+                        // Dropped from 2 fingers to 1 → switch to look
+                        touchLookActive = true;
+                        lastTouchX = e.touches[0].clientX;
+                        lastTouchY = e.touches[0].clientY;
+                        touchMoveVec.set(0, 0, 0);
+                    }
+                });
+
+                canvas.addEventListener('touchcancel', () => {
+                    touchLookActive = false;
+                    touchMoveVec.set(0, 0, 0);
+                    lastPinchDistance = 0;
+                });
+            }
+
             // Initialize yaw/pitch from current camera orientation (after initial placement)
             function initYawPitchFromCamera() {
                 const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
@@ -830,8 +938,8 @@
                 initialAutoBtn.classList.remove('!bg-white/10', 'text-[#68f983]');
             }
 
-            // Seed the quality buttons (auto-detect may have already chosen 'potato')
-            setTimeout(updateQualityButtons, 80);
+            // Quality is now forced (no buttons)
+            console.log('[SplatViewer] Mobile:', isMobile ? 'yes (Potato forced)' : 'no (Low forced)');
         }
 
         function onResize() {
@@ -887,6 +995,15 @@
                 if (move.lengthSq() > 0) {
                     move.normalize().multiplyScalar(moveSpeed * delta);
                     camera.position.add(move);
+                }
+
+                // Apply touch-based movement (mobile fly controls)
+                if (isMobile && touchMoveVec.lengthSq() > 0) {
+                    const touchSpeed = 42; // tuned for touch feel
+                    camera.position.add(touchMoveVec.clone().multiplyScalar(touchSpeed * delta));
+                    // decay so it doesn't keep flying forever after lifting fingers
+                    touchMoveVec.multiplyScalar(0.82);
+                    if (touchMoveVec.lengthSq() < 0.0001) touchMoveVec.set(0, 0, 0);
                 }
             }
 
@@ -988,8 +1105,8 @@
             console.log(`[SplatViewer] (legacy) maxSplats set to ${count}`);
         }
 
-        // Live quality presets using Spark's excellent LoD system.
-        // These are the main way to make the viewer run on potatoes.
+        // Quality is forced at startup (Potato on mobile, Low on desktop).
+        // This function is kept for console debugging only (e.g. SPLAT_DEBUG.setQualityLevel('medium'))
         let currentQualityLevel = 'low';
 
         function setQualityLevel(level) {
@@ -1005,37 +1122,17 @@
             const p = presets[level] || presets.low;
             currentQualityLevel = level;
 
-            // Apply to SparkRenderer (these are the live controls)
             if (typeof spark.lodSplatScale === 'number') spark.lodSplatScale = p.lodSplatScale;
             if (typeof spark.lodSplatCount === 'number')  spark.lodSplatCount  = p.lodSplatCount;
             if (typeof spark.maxStdDev === 'number')      spark.maxStdDev      = p.maxStdDev;
 
-            // Also try SplatMesh in case it has direct knobs
             if (splatMesh) {
                 if (typeof splatMesh.lodScale === 'number') splatMesh.lodScale = p.lodSplatScale;
                 if (typeof splatMesh.maxSplats === 'number') splatMesh.maxSplats = p.lodSplatCount;
             }
 
-            // Update any UI buttons
-            updateQualityButtons();
-
             claimKeyboardFor3D();
-            console.log(`[SplatViewer] Quality → ${p.label} (scale=${p.lodSplatScale}, count=${p.lodSplatCount})`);
-        }
-
-        function updateQualityButtons() {
-            const levels = ['potato', 'low', 'medium', 'high'];
-            levels.forEach(lvl => {
-                const btn = document.getElementById(`q-${lvl}`);
-                if (!btn) return;
-                if (lvl === currentQualityLevel) {
-                    btn.classList.add('!bg-[#68f983]', '!text-black', 'font-semibold');
-                    btn.classList.remove('text-white/80');
-                } else {
-                    btn.classList.remove('!bg-[#68f983]', '!text-black', 'font-semibold');
-                    btn.classList.add('text-white/80');
-                }
-            });
+            console.log(`[SplatViewer] Quality changed via console → ${p.label}`);
         }
 
         function updateFpsDisplay() {
@@ -1105,17 +1202,24 @@
                                 <div>Toggle fullscreen</div>
                             </div>
                             <div class="flex gap-4">
-                                <div class="w-9 text-right text-gray-400 shrink-0">Quality buttons</div>
-                                <div>Left panel (desktop) — start on <b>Low/Potato</b></div>
-                            </div>
-                            <div class="flex gap-4">
                                 <div class="w-9 text-right text-gray-400 shrink-0">FPS</div>
                                 <div>Top-right pill (click to hide). Aim for 35+ FPS.</div>
+                            </div>
+
+                            <!-- Mobile -->
+                            <div class="pt-2 border-t border-white/10 text-[12px] text-gray-400">On mobile / touch:</div>
+                            <div class="flex gap-4">
+                                <div class="w-9 text-right text-gray-400 shrink-0">1 finger</div>
+                                <div>Drag to look around</div>
+                            </div>
+                            <div class="flex gap-4">
+                                <div class="w-9 text-right text-gray-400 shrink-0">2 fingers</div>
+                                <div>Drag vertical = forward/back • Horizontal = strafe • Pinch = up/down</div>
                             </div>
                         </div>
                     </div>
                     <div class="bg-white/5 px-7 py-4 text-xs text-gray-400 border-t border-white/10">
-                        Use the Quality buttons (left panel) to drop to "Potato" or "Low" on integrated graphics or older laptops.
+                        Quality is locked (Potato on phones/tablets, Low on desktop) for best compatibility and performance.
                     </div>
                 </div>
             `;
@@ -1253,7 +1357,7 @@
         window.frameSplat = frameSplat;
 
         // Also keep the debug object
-        window.SPLAT_DEBUG = { resetCamera, toggleAutoRotate, frameSplat, setSplatQuality, setQualityLevel };
+        window.SPLAT_DEBUG = { resetCamera, toggleAutoRotate, frameSplat, setSplatQuality, setQualityLevel, isMobile };
     </script>
 </body>
 </html>
