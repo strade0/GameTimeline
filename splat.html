@@ -48,6 +48,18 @@
             box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
         }
 
+        /* Completely disable all hover effects on the Instructions and Help popups */
+        #splat-intro-modal .intro-popup-card,
+        #splat-help-modal .intro-popup-card,
+        #splat-intro-modal .intro-popup-card:hover,
+        #splat-help-modal .intro-popup-card:hover {
+            transition: none !important;
+            transform: none !important;
+            background: #0a0a0a !important;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;
+            border-color: white !important;
+        }
+
         /* Accent button - exact match */
         .btn-accent {
             background: #68f983;
@@ -195,14 +207,13 @@
                 <span>Shift = boost</span>
             </div>
         </div>
+    </div>
 
-        <!-- FPS counter (click to toggle visibility). Extremely useful for tuning quality on your machine. -->
-        <div id="fps-counter"
-             onclick="toggleFpsCounter()"
-             class="absolute top-4 right-4 z-20 px-2.5 py-1 text-[10px] font-mono tabular-nums rounded-md bg-black/60 border border-white/10 text-[#68f983] cursor-pointer select-none"
-             title="Click to hide/show • Target 35+ FPS comfortable on low-end hardware">
-            -- FPS
-        </div>
+    <!-- FPS counter (top-right corner, overlapping the navbar) -->
+    <div id="fps-counter"
+         class="fixed top-4 right-4 z-50 px-2.5 py-1 text-[10px] font-mono tabular-nums rounded-md bg-black/60 border border-white/10 text-[#68f983] select-none"
+         title="Rendering capped at 60 FPS to reduce GPU usage">
+        -- FPS
     </div>
 
     <!-- Left Info Panel -->
@@ -210,21 +221,10 @@
         <div class="floating-panel glass-card rounded-2xl p-5 text-sm">
             <div class="panel-label mb-3">Current Asset</div>
             
-            <div class="font-semibold text-lg tracking-tight mb-1">Newsest.ply</div>
+            <div class="font-semibold text-lg tracking-tight mb-1">Classroom</div>
             <div class="text-gray-400 text-xs mb-4">5M source splats • ~292 MB (adaptive LoD)</div>
 
-            <div class="space-y-2 text-sm">
-                <div class="flex justify-between">
-                    <span class="text-gray-400">Format</span>
-                    <span class="font-mono text-xs text-white/80">Binary PLY (3DGS)</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-400">SH Degree</span>
-                    <span class="font-mono text-xs text-white/80">3 (full)</span>
-                </div>
-            </div>
-
-            <div class="mt-4 pt-4 border-t border-white/10 text-[11px] text-gray-500 leading-snug">
+            <div class="mt-2 pt-3 border-t border-white/10 text-[11px] text-gray-500 leading-snug">
                 High-fidelity reconstruction from the 3D Modelling module.<br>
                 <span class="text-[#68f983]">Quality locked</span> for best compatibility (Potato on mobile, Low on desktop).
             </div>
@@ -337,14 +337,16 @@
         // GAUSSIAN SPLAT VIEWER - Spark + Three.js
         // Single-file implementation matching Game Dev Tracker design
         //
-        // Performance notes (2026-05):
-        // - Using PLY (~292 MB) because remote .spz is not loading right now.
-        // - Heavy optimizations active:
-        //     • pixelRatio=1 + antialias=false
-        //     • Forced conservative LoD (Potato on mobile, Low on desktop — locked, no selector)
-        //     • Full touch controls on mobile (1 finger = look, 2 fingers = fly)
-        //     • FPS counter
-        // Designed to run well on phones and low-end laptops.
+        // Smart file loading:
+        // - Automatically detects local vs production (GitHub)
+        // - Local (python -m http.server etc.) → uses local .ply files
+        // - Production / GitHub → loads from remote CDN
+        // - Add ?local or ?remote to URL to force a mode
+        //
+        // Performance notes:
+        // - Heavy optimizations for low-end devices (Potato on mobile, Low on desktop)
+        // - Full touch controls + keyboard fly controls
+        // - FPS counter (click to hide)
         // =====================================================
 
         import * as THREE from "three";
@@ -374,6 +376,34 @@
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
                          ('ontouchstart' in window) ||
                          (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+
+        // Smart environment detection (used by splat loader)
+        const isLocalEnvironment =
+            window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1' ||
+            window.location.hostname === '0.0.0.0' ||
+            window.location.hostname.startsWith('192.168.') ||
+            window.location.protocol === 'file:';
+
+        // Allow forcing via URL (?local or ?remote)
+        const urlParams = new URLSearchParams(window.location.search);
+        const forceLocal = urlParams.has('local');
+        const forceRemote = urlParams.has('remote');
+        const useRemote = forceRemote || (!forceLocal && !isLocalEnvironment);
+
+        // Render FPS limiter (to reduce GPU usage)
+        const maxRenderFPS = 60;
+        const frameInterval = 1000 / maxRenderFPS;
+        let lastFrameTime = 0;
+
+        // Modal state management (Instructions + Help)
+        let currentOpenMenu = null; // 'instructions' | 'help' | null
+
+        function closeAnyOpenMenu() {
+            const existing = document.getElementById('splat-intro-modal') || document.getElementById('splat-help-modal');
+            if (existing) existing.remove();
+            currentOpenMenu = null;
+        }
 
         // FPS tracking (lightweight, no external libs)
         let frameCount = 0;
@@ -449,39 +479,48 @@
             loadStartTime = Date.now();
             // Status pill removed from UI — no longer updating it
 
-            // === SPLAT FILE CONFIGURATION ===
-            //
-            // Using the PLY because .spz remote is currently not loading.
-            // PLYcompressed.ply is ~292 MB (much larger than the .spz alternative).
-            // The runtime quality/LoD controls below still make a big difference for low-end GPUs.
-            const REMOTE_SPLAT_URL = "https://assets.hellobruh.com/PLYcompressed.ply";
+            // =====================================================
+            // SMART SPLAT FILE CONFIGURATION
+            // Uses the top-level detection (see above) so the same file
+            // works for both local python server and GitHub.
+            // =====================================================
+            const REMOTE_SPLAT_URL = useRemote
+                ? "https://assets.hellobruh.com/PLYcompressed.ply"
+                : null;
 
-            // Local file fallbacks (used only when REMOTE_SPLAT_URL is null)
-            // Matches the actual files present in this folder.
-            const candidates = [
-                './PLYcompressed.ply',
-                './NewsestCompressed.spz',
-                './Compressed.spz',   // legacy name
-                './Newsest.ply'
-            ];
+            // Local file candidates (tried in order).
+            // Note: NewsestCompressed.spz is intentionally excluded because it does not work.
+            const candidates = useRemote
+                ? []
+                : [
+                    './PLYcompressed.ply',   // main local file
+                    './Compressed.spz',      // legacy name
+                    './Newsest.ply'
+                ];
+
+            console.log(
+                `%c[SplatViewer] Mode: ${useRemote ? 'REMOTE (CDN)' : 'LOCAL'} ` +
+                `| Host: ${window.location.hostname} | Protocol: ${window.location.protocol}`,
+                'color:#68f983'
+            );
 
             let splatURL = null;
             let response = null;
 
             if (REMOTE_SPLAT_URL) {
-                // === Load from external URL (best for GitHub) ===
+                // === Load from external URL (GitHub / Production) ===
                 splatURL = REMOTE_SPLAT_URL;
-                console.log(`[SplatViewer] Loading from remote URL: ${splatURL}`);
+                console.log(`[SplatViewer] Loading from remote CDN: ${splatURL}`);
                 response = await fetch(splatURL);
             } else {
-                // === Load from local files ===
+                // === Load from local files (python -m http.server, etc.) ===
                 for (const file of candidates) {
                     try {
                         const head = await fetch(file, { method: 'HEAD' });
                         if (head.ok) {
                             splatURL = file;
                             response = await fetch(file);
-                            console.log(`[SplatViewer] Loading from ${file}`);
+                            console.log(`[SplatViewer] Loading from local file: ${file}`);
                             break;
                         }
                     } catch (err) {
@@ -493,9 +532,13 @@
             if (!splatURL || !response || !response.ok) {
                 throw new Error(
                     'No splat file found.\n\n' +
-                    '→ REMOTE_SPLAT_URL is currently set to the PLY on your CDN.\n' +
-                    '   Make sure https://assets.hellobruh.com/PLYcompressed.ply is public.\n\n' +
-                    '→ For local dev: set REMOTE_SPLAT_URL = null and place PLYcompressed.ply (or .spz) next to this file.'
+                    (useRemote
+                        ? '→ Running in REMOTE mode but the CDN file failed to load.\n' +
+                          '   Check your internet connection or the remote URL.\n\n' +
+                          '→ Tip: Add ?local to the URL to force local file loading.'
+                        : '→ Running in LOCAL mode.\n' +
+                          '   Make sure one of these files exists next to splat.html:\n' +
+                          '   PLYcompressed.ply or Newsest.ply')
                 );
             }
 
@@ -618,11 +661,10 @@
                         hideLoadingOverlay();
                         if (sizeWarning) sizeWarning.style.display = 'none';
 
-                        // First-time controls education popup (shows mouse drag etc.)
-                        // Only appears once unless user chose "Don't show again"
+                        // Show a subtle, temporary hint pill at the bottom
                         setTimeout(() => {
-                            maybeShowIntroPopup();
-                        }, 950);
+                            showControlsHint();
+                        }, 1100);
 
                         // Quality is forced at startup — nothing to update in UI
 
@@ -959,69 +1001,67 @@
             renderer.setSize(w, h);
         }
 
-        function animate() {
+        function animate(timestamp = 0) {
             const delta = clock.getDelta();
 
-            // === FPS tracking (cheap, updates twice per second) ===
-            frameCount++;
-            const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-            if (now - lastFpsUpdate > 480) {
-                const dt = now - lastFpsUpdate || 480;
-                currentFps = Math.round(frameCount * 1000 / dt);
-                frameCount = 0;
-                lastFpsUpdate = now;
-                updateFpsDisplay();
-            }
+            // Strict FPS cap at 60 to reduce GPU usage
+            if (timestamp - lastFrameTime >= frameInterval) {
+                lastFrameTime = timestamp;
 
-            // No external controls for look/movement — everything is manual and strict
-            // (nothing to update here)
-
-            // === Custom snappy fly movement (no inertia) ===
-            if (camera) {
-                const moveSpeed = 9 * (keys['shift'] ? 5.0 : 1); // default speed halved per request, Shift still gives big boost
-                const forward = new THREE.Vector3();
-                const right = new THREE.Vector3();
-                const up = new THREE.Vector3(0, 1, 0);
-
-                camera.getWorldDirection(forward);
-                // Correct right vector for camera-relative strafing
-                // (forward × up gives the camera's true right direction)
-                right.crossVectors(forward, up).normalize();
-
-                const move = new THREE.Vector3();
-
-                if (keys['w']) move.add(forward);
-                if (keys['s']) move.sub(forward);
-                if (keys['a']) move.sub(right);
-                if (keys['d']) move.add(right);
-
-                // Vertical movement (E = straight up, Q = straight down) in world space.
-                // The model is rotated on load so this feels correct for the captured scene.
-                if (keys['e']) move.add(up);
-                if (keys['q']) move.sub(up);
-
-                if (move.lengthSq() > 0) {
-                    move.normalize().multiplyScalar(moveSpeed * delta);
-                    camera.position.add(move);
+                // === FPS tracking — only count actual rendered frames ===
+                frameCount++;
+                const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+                if (now - lastFpsUpdate > 480) {
+                    const dt = now - lastFpsUpdate || 480;
+                    currentFps = Math.round(frameCount * 1000 / dt);
+                    frameCount = 0;
+                    lastFpsUpdate = now;
+                    updateFpsDisplay();
                 }
 
-                // Apply touch-based movement (mobile fly controls)
-                if (isMobile && touchMoveVec && touchMoveVec.lengthSq() > 0) {
-                    const touchSpeed = 42; // tuned for touch feel
-                    camera.position.add(touchMoveVec.clone().multiplyScalar(touchSpeed * delta));
-                    // decay so it doesn't keep flying forever after lifting fingers
-                    touchMoveVec.multiplyScalar(0.82);
-                    if (touchMoveVec.lengthSq() < 0.0001) touchMoveVec.set(0, 0, 0);
+                // === Custom snappy fly movement (no inertia) ===
+                if (camera) {
+                    const moveSpeed = 9 * (keys['shift'] ? 5.0 : 1);
+                    const forward = new THREE.Vector3();
+                    const right = new THREE.Vector3();
+                    const up = new THREE.Vector3(0, 1, 0);
+
+                    camera.getWorldDirection(forward);
+                    right.crossVectors(forward, up).normalize();
+
+                    const move = new THREE.Vector3();
+
+                    if (keys['w']) move.add(forward);
+                    if (keys['s']) move.sub(forward);
+                    if (keys['a']) move.sub(right);
+                    if (keys['d']) move.add(right);
+                    if (keys['e']) move.add(up);
+                    if (keys['q']) move.sub(up);
+
+                    if (move.lengthSq() > 0) {
+                        move.normalize().multiplyScalar(moveSpeed * delta);
+                        camera.position.add(move);
+                    }
+
+                    if (isMobile && touchMoveVec && touchMoveVec.lengthSq() > 0) {
+                        const touchSpeed = 42;
+                        camera.position.add(touchMoveVec.clone().multiplyScalar(touchSpeed * delta));
+                        touchMoveVec.multiplyScalar(0.82);
+                        if (touchMoveVec.lengthSq() < 0.0001) touchMoveVec.set(0, 0, 0);
+                    }
+                }
+
+                if (autoRotate && splatMesh && isLoaded) {
+                    splatMesh.rotation.y += 0.0006;
+                }
+
+                if (renderer && scene && camera) {
+                    renderer.render(scene, camera);
                 }
             }
 
-            if (autoRotate && splatMesh && isLoaded) {
-                splatMesh.rotation.y += 0.0006;
-            }
-
-            if (renderer && scene && camera) {
-                renderer.render(scene, camera);
-            }
+            // Keep the loop alive
+            renderer.setAnimationLoop(animate);
         }
 
         function frameSplat() {
@@ -1170,40 +1210,47 @@
         }
 
         function showHelp() {
+            if (currentOpenMenu === 'help') {
+                closeAnyOpenMenu();
+                return;
+            }
+            closeAnyOpenMenu();
+
+            // Remove hint pill if visible
+            const existingHint = document.getElementById('controls-hint');
+            if (existingHint) existingHint.remove();
+
             const modal = document.createElement('div');
-            modal.className = `fixed inset-0 bg-black/80 backdrop-blur-sm z-[70] flex items-center justify-center p-6`;
+            modal.id = 'splat-help-modal';
+            modal.className = `fixed inset-0 bg-black/20 backdrop-blur-md z-[85] flex items-center justify-center p-4 sm:p-6`;
+
             modal.innerHTML = `
-                <div class="glass-card rounded-3xl w-full max-w-lg overflow-hidden">
+                <div class="glass-card intro-popup-card rounded-3xl w-full max-w-lg overflow-hidden border-2 border-white ring-1 ring-[#68f983]/50 bg-[#0a0a0a]/95 shadow-2xl">
                     <div class="p-7">
                         <div class="flex items-center justify-between mb-5">
                             <div class="text-xl font-semibold tracking-tight">Controls</div>
-                            <button class="text-gray-400 hover:text-white text-2xl leading-none" onclick="this.closest('.fixed').remove()">×</button>
                         </div>
                         
-                        <div class="space-y-4 text-sm">
+                        <div class="space-y-3.5 text-sm">
                             <div class="flex gap-4">
-                                <div class="w-9 text-right text-gray-400 shrink-0">WASD</div>
+                                <div class="w-9 text-right text-gray-400 shrink-0 font-medium">WASD</div>
                                 <div>Fly / move camera</div>
                             </div>
                             <div class="flex gap-4">
-                                <div class="w-9 text-right text-gray-400 shrink-0">Mouse drag</div>
+                                <div class="w-9 text-right text-gray-400 shrink-0 font-medium">Mouse drag</div>
                                 <div>Look around (left click + drag)</div>
                             </div>
                             <div class="flex gap-4">
-                                <div class="w-9 text-right text-gray-400 shrink-0">E / Q</div>
+                                <div class="w-9 text-right text-gray-400 shrink-0 font-medium">E / Q</div>
                                 <div>Straight up / straight down</div>
                             </div>
                             <div class="flex gap-4">
-                                <div class="w-9 text-right text-gray-400 shrink-0">Shift</div>
+                                <div class="w-9 text-right text-gray-400 shrink-0 font-medium">Shift</div>
                                 <div>Big speed boost</div>
                             </div>
                             <div class="flex gap-4">
                                 <div class="w-9 text-right text-gray-400 shrink-0"><span class="shortcut">R</span></div>
                                 <div>Reset camera position</div>
-                            </div>
-                            <div class="flex gap-4">
-                                <div class="w-9 text-right text-gray-400 shrink-0"><span class="shortcut">A</span></div>
-                                <div>Toggle auto-rotation</div>
                             </div>
                             <div class="flex gap-4">
                                 <div class="w-9 text-right text-gray-400 shrink-0"><span class="shortcut">F</span></div>
@@ -1215,7 +1262,7 @@
                             </div>
 
                             <!-- Mobile -->
-                            <div class="pt-2 border-t border-white/10 text-[12px] text-gray-400">On mobile / touch:</div>
+                            <div class="pt-3 border-t border-white/20 text-[12px] text-gray-400">On mobile / touch:</div>
                             <div class="flex gap-4">
                                 <div class="w-9 text-right text-gray-400 shrink-0">1 finger</div>
                                 <div>Drag to look around</div>
@@ -1226,21 +1273,40 @@
                             </div>
                         </div>
                     </div>
-                    <div class="bg-white/5 px-7 py-4 text-xs text-gray-400 border-t border-white/10">
+                    <div class="bg-white/5 px-7 py-4 text-xs text-gray-400 border-t border-white/20">
                         Quality is locked (Potato on phones/tablets, Low on desktop) for best compatibility and performance.
                     </div>
                 </div>
             `;
             document.body.appendChild(modal);
-            
-            // Close on escape
-            const closeOnEsc = (e) => {
+
+            currentOpenMenu = 'help';
+
+            // Backdrop click to close
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeAnyOpenMenu();
+                }
+            });
+
+            // Create X button (top right)
+            const xBtn = document.createElement('button');
+            xBtn.textContent = '×';
+            xBtn.className = 'text-gray-400 hover:text-[#68f983] text-4xl leading-none select-none transition-colors';
+            xBtn.style.position = 'absolute';
+            xBtn.style.right = '22px';
+            xBtn.style.top = '14px';
+            xBtn.addEventListener('click', () => closeAnyOpenMenu(), { once: true });
+            modal.querySelector('.glass-card').appendChild(xBtn);
+
+            // Close on Escape
+            const handleEsc = (e) => {
                 if (e.key === 'Escape') {
-                    modal.remove();
-                    document.removeEventListener('keydown', closeOnEsc);
+                    closeAnyOpenMenu();
+                    document.removeEventListener('keydown', handleEsc);
                 }
             };
-            document.addEventListener('keydown', closeOnEsc, { once: true });
+            document.addEventListener('keydown', handleEsc, { once: true });
         }
 
         function dismissSizeWarning() {
@@ -1253,33 +1319,30 @@
         }
 
         // =====================================================
-        // FIRST-TIME INTRO POPUP
-        // Educates users about mouse drag (the #1 missing affordance)
-        // + keyboard and touch controls. Shows only once per browser.
+        // INSTRUCTIONS POPUP
+        // Full controls reference. Triggered by pressing I (or via the temporary hint pill).
         // =====================================================
         function showIntroPopup() {
-            if (document.getElementById('splat-intro-modal')) return; // prevent duplicates
+            // Remove any visible hint pill when opening the full instructions
+            const existingHint = document.getElementById('controls-hint');
+            if (existingHint) existingHint.remove();
+
+            if (currentOpenMenu === 'instructions') {
+                closeAnyOpenMenu();
+                return;
+            }
+            closeAnyOpenMenu();
 
             const modal = document.createElement('div');
             modal.id = 'splat-intro-modal';
-            modal.className = `fixed inset-0 bg-black/85 backdrop-blur-xl z-[85] flex items-center justify-center p-4 sm:p-6`;
+            modal.className = `fixed inset-0 bg-black/20 backdrop-blur-md z-[85] flex items-center justify-center p-4 sm:p-6`;
 
             // Build the entire modal in JS (no onclick attributes in HTML at all)
-            // This completely eliminates any possibility of stale inline handlers.
             modal.innerHTML = `
-                <div class="glass-card rounded-3xl w-full max-w-[560px] overflow-hidden border border-white/10 shadow-2xl" data-intro-version="2026-05-27-v4">
+                <div class="glass-card intro-popup-card rounded-3xl w-full max-w-[500px] overflow-hidden border-2 border-white ring-1 ring-[#68f983]/50 bg-[#0a0a0a]/95 shadow-2xl" data-intro-version="2026-05-27-v5">
                     <!-- Header -->
-                    <div class="px-6 pt-6 pb-4">
-                        <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <div class="flex items-center gap-2 mb-1">
-                                    <i class="ph ph-cube text-[#68f983] text-xl"></i>
-                                    <span class="text-[10px] font-semibold tracking-[1.5px] text-[#68f983] uppercase">Welcome</span>
-                                </div>
-                                <h3 class="text-2xl font-semibold tracking-tight">How to explore the 3D scene</h3>
-                            </div>
-                        </div>
-                        <p class="text-sm text-gray-400 mt-3">Mouse drag is the main way to look around. Here's everything else:</p>
+                    <div class="px-6 pt-5 pb-3">
+                        <div class="text-lg font-semibold tracking-tight">Instructions:</div>
                     </div>
 
                     <!-- Controls content -->
@@ -1287,107 +1350,115 @@
                         
                         <!-- Desktop -->
                         <div>
-                            <div class="panel-label text-[10px] mb-2.5 tracking-wider">Desktop</div>
-                            <div class="grid gap-x-4 gap-y-2.5 text-[13px]">
-                                <div class="flex gap-3">
-                                    <div class="w-7 shrink-0 pt-px"><i class="ph ph-mouse text-lg text-white/75"></i></div>
-                                    <div><span class="font-medium text-white">Left-click + drag</span> <span class="text-gray-400">— Rotate / look around (free look)</span></div>
+                            <div class="text-[10px] uppercase tracking-widest text-white/50 mb-2">Desktop</div>
+                            <div class="space-y-2 text-[13.5px]">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-6 shrink-0 text-white/80"><i class="ph ph-mouse text-lg"></i></div>
+                                    <div><span class="font-medium">Drag</span> <span class="text-white/60">— Look around</span></div>
                                 </div>
-                                <div class="flex gap-3">
-                                    <div class="w-7 shrink-0 font-mono text-[11px] text-white/60 pt-0.5">WASD</div>
-                                    <div><span class="font-medium text-white">WASD</span> <span class="text-gray-400">— Fly forward, strafe left/right/back</span></div>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-6 shrink-0 font-mono text-xs text-white/60 pt-0.5">WASD</div>
+                                    <div><span class="font-medium">WASD</span> <span class="text-white/60">— Fly &amp; strafe</span></div>
                                 </div>
-                                <div class="flex gap-3">
-                                    <div class="w-7 shrink-0"><i class="ph ph-arrows-vertical text-lg text-white/75"></i></div>
-                                    <div><span class="font-medium text-white">E / Q</span> <span class="text-gray-400">— Straight up / straight down</span></div>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-6 shrink-0 text-white/80"><i class="ph ph-arrows-vertical text-lg"></i></div>
+                                    <div><span class="font-medium">E / Q</span> <span class="text-white/60">— Up / Down</span></div>
                                 </div>
-                                <div class="flex gap-3">
-                                    <div class="w-7 shrink-0"><i class="ph ph-lightning text-lg text-white/75"></i></div>
-                                    <div><span class="font-medium text-white">Shift</span> <span class="text-gray-400">— Big speed boost while moving</span></div>
+                                <div class="flex items-center gap-3">
+                                    <div class="w-6 shrink-0 text-white/80"><i class="ph ph-lightning text-lg"></i></div>
+                                    <div><span class="font-medium">Shift</span> <span class="text-white/60">— Speed boost</span></div>
                                 </div>
-                                <div class="flex gap-3 pt-1 text-gray-400">
-                                    <div class="w-7 shrink-0"><span class="shortcut px-1.5">R</span></div>
-                                    <div>Reset camera &nbsp;•&nbsp; <span class="shortcut px-1.5">F</span> Fullscreen &nbsp;•&nbsp; <span class="shortcut px-1.5">H</span> or <span class="shortcut px-1.5">?</span> Help</div>
+                                <div class="flex items-center gap-3 pt-0.5 text-xs text-white/50">
+                                    <div class="w-6 shrink-0"><span class="shortcut">R</span></div>
+                                    <div>Reset &nbsp;•&nbsp; <span class="shortcut">F</span> Fullscreen &nbsp;•&nbsp; <span class="shortcut">H</span> Help</div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Touch -->
-                        <div class="pt-4 border-t border-white/10">
-                            <div class="panel-label text-[10px] mb-2.5 tracking-wider">Mobile / Touch devices</div>
-                            <div class="text-[13px] text-gray-300 space-y-[3px]">
-                                <div><span class="font-medium text-white">1 finger drag</span> — Look around</div>
-                                <div><span class="font-medium text-white">2 fingers drag</span> — Move (vertical = forward/back, horizontal = strafe)</div>
-                                <div><span class="font-medium text-white">2-finger pinch</span> — Move straight up or down</div>
+                        <div class="pt-3 border-t border-white/20">
+                            <div class="text-[10px] uppercase tracking-widest text-white/50 mb-2">Touch</div>
+                            <div class="space-y-1.5 text-[13.5px] text-white/90">
+                                <div><span class="font-medium text-white">1 finger drag</span> <span class="text-white/60">— Look around</span></div>
+                                <div><span class="font-medium text-white">2 fingers</span> <span class="text-white/60">— Move (vertical/horizontal drag, pinch up/down)</span></div>
                             </div>
                         </div>
+
                     </div>
 
-                    <!-- Footer actions (buttons will be created in JS below) -->
-                    <div class="bg-white/5 px-6 py-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between text-xs">
-                        <div class="text-gray-400 text-center sm:text-left">
-                            This only appears once. Re-open with <span class="shortcut">?</span> key.
-                        </div>
-                        <div id="intro-actions" class="flex gap-2 justify-center"></div>
+                    <!-- Footer with single Close button -->
+                    <div class="bg-white/5 px-6 py-4 border-t border-white/20 flex justify-end">
+                        <div id="intro-actions"></div>
                     </div>
                 </div>
             `;
             document.body.appendChild(modal);
 
-            console.log('%c[SplatViewer] Intro popup v4 injected (pure JS buttons, no onclick attributes)', 'color:#68f983');
+            currentOpenMenu = 'instructions';
+
+            // Close popup when clicking on the backdrop (outside the card)
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeAnyOpenMenu();
+                }
+            });
+
+            console.log('%c[SplatViewer] Intro popup v5 injected (simplified, pure JS buttons)', 'color:#68f983');
 
             // === Create buttons 100% in JavaScript (zero onclick attributes anywhere) ===
             const actionsContainer = modal.querySelector('#intro-actions');
 
-            // Close (X) button in header — positioned via JS so we control everything
+            // Bottom "Close" button
             const closeBtn = document.createElement('button');
-            closeBtn.textContent = '×';
-            closeBtn.className = 'text-gray-400 hover:text-white text-4xl leading-none select-none';
-            closeBtn.style.position = 'absolute';
-            closeBtn.style.right = '24px';
-            closeBtn.style.top = '20px';
-            closeBtn.addEventListener('click', () => modal.remove(), { once: true });
-            modal.querySelector('.glass-card').appendChild(closeBtn);
+            closeBtn.textContent = 'Close';
+            closeBtn.className = 'px-6 py-1.5 rounded-2xl bg-white/10 hover:bg-[#68f983]/10 hover:text-[#68f983] active:bg-white/20 text-white transition-colors font-medium text-sm';
+            closeBtn.addEventListener('click', () => closeAnyOpenMenu(), { once: true });
+            actionsContainer.appendChild(closeBtn);
 
-            // Got it button
-            const gotItBtn = document.createElement('button');
-            gotItBtn.textContent = 'Got it';
-            gotItBtn.className = 'px-5 py-2 rounded-2xl bg-white/10 hover:bg-white/15 active:bg-white/20 text-white transition-colors font-medium text-sm';
-            gotItBtn.addEventListener('click', () => {
-                modal.remove();
-            }, { once: true });
+            // X button (top right)
+            const xBtn = document.createElement('button');
+            xBtn.textContent = '×';
+            xBtn.className = 'text-gray-400 hover:text-[#68f983] text-4xl leading-none select-none transition-colors';
+            xBtn.style.position = 'absolute';
+            xBtn.style.right = '22px';
+            xBtn.style.top = '14px';
+            xBtn.addEventListener('click', () => closeAnyOpenMenu(), { once: true });
+            modal.querySelector('.glass-card').appendChild(xBtn);
 
-            // Don't show again button
-            const dontShowBtn = document.createElement('button');
-            dontShowBtn.textContent = "Don't show again";
-            dontShowBtn.className = 'px-5 py-2 rounded-2xl text-[#68f983] hover:bg-white/10 active:bg-white/15 transition-colors font-medium text-sm';
-            dontShowBtn.addEventListener('click', () => {
-                localStorage.setItem('splatIntroDismissed', 'true');
-                modal.remove();
-            }, { once: true });
-
-            actionsContainer.appendChild(gotItBtn);
-            actionsContainer.appendChild(dontShowBtn);
-
-            // Close on Escape (temporary close, not permanent dismiss)
+            // Close on Escape
             const handleEsc = (e) => {
                 if (e.key === 'Escape') {
-                    const m = document.getElementById('splat-intro-modal');
-                    if (m) m.remove();
+                    closeAnyOpenMenu();
                     document.removeEventListener('keydown', handleEsc);
                 }
             };
             document.addEventListener('keydown', handleEsc, { once: true });
         }
 
-        function maybeShowIntroPopup() {
-            if (localStorage.getItem('splatIntroDismissed') === 'true') return;
+        function showControlsHint() {
+            // Don't show if the full instructions modal is already open
+            if (document.getElementById('splat-intro-modal')) return;
 
-            // Avoid showing while another important modal/overlay is visible
-            const loading = document.getElementById('loading-overlay');
-            if (loading && !loading.classList.contains('loading-hidden')) return;
+            const hint = document.createElement('div');
+            hint.id = 'controls-hint';
+            hint.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-6 py-2.5 rounded-2xl 
+                              text-sm text-white/85 bg-black/75 border border-white/25 backdrop-blur-lg 
+                              flex items-center gap-2 shadow-xl`;
+            hint.innerHTML = `
+                <span>Press <span class="font-semibold text-white">I</span> for Instructions</span>
+            `;
+            document.body.appendChild(hint);
 
-            showIntroPopup();
+            // Fade out and remove after 8 seconds
+            setTimeout(() => {
+                if (hint && hint.parentNode) {
+                    hint.style.transition = 'opacity 400ms ease';
+                    hint.style.opacity = '0';
+                    setTimeout(() => {
+                        if (hint && hint.parentNode) hint.parentNode.removeChild(hint);
+                    }, 450);
+                }
+            }, 8000);
         }
 
         function setupKeyboardShortcuts() {
@@ -1412,7 +1483,20 @@
                         break;
                     case 'h':
                     case '?':
-                        showHelp();
+                        if (currentOpenMenu === 'help') {
+                            closeAnyOpenMenu();
+                        } else {
+                            closeAnyOpenMenu();
+                            showHelp();
+                        }
+                        break;
+                    case 'i':
+                        if (currentOpenMenu === 'instructions') {
+                            closeAnyOpenMenu();
+                        } else {
+                            closeAnyOpenMenu();
+                            showIntroPopup();
+                        }
                         break;
                     case 'escape':
                         if (document.fullscreenElement) {
@@ -1501,10 +1585,18 @@
         window.toggleFpsCounter = toggleFpsCounter;
         window.showHelp = showHelp;
         window.frameSplat = frameSplat;
-        window.showIntroPopup = showIntroPopup;   // useful for testing / re-triggering the intro
+        window.showIntroPopup = showIntroPopup;   // manual trigger (also bound to I key)
 
         // Also keep the debug object
-        window.SPLAT_DEBUG = { resetCamera, toggleAutoRotate, frameSplat, setSplatQuality, setQualityLevel, isMobile };
+        window.SPLAT_DEBUG = { 
+            resetCamera, 
+            toggleAutoRotate, 
+            frameSplat, 
+            setSplatQuality, 
+            setQualityLevel, 
+            isMobile,
+            isLocalMode: !useRemote   // useful for debugging
+        };
     </script>
 </body>
 </html>
