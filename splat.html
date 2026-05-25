@@ -351,9 +351,6 @@
         import { FlyControls } from "three/addons/controls/FlyControls.js";
         import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
 
-        // Initialize touch movement vector now that THREE is loaded
-        touchMoveVec = new THREE.Vector3();
-
         // DOM references
         const container = document.getElementById('viewer-container');
         const loadingOverlay = document.getElementById('loading-overlay');
@@ -405,7 +402,7 @@
         let touchLookActive = false;
         let lastTouchX = 0;
         let lastTouchY = 0;
-        let touchMoveVec = null;   // initialized after THREE is imported
+        let touchMoveVec = null;   // initialized safely inside initThreeJS()
         let lastPinchDistance = 0;
 
         // Load progress tracking (for ~292 MB PLY file)
@@ -719,6 +716,11 @@
             // === Custom direct mouse look (precise, no smoothing, correct inversion) ===
             const canvas = renderer.domElement;
 
+            // Safe initialization of touch vector (after all top-level declarations have run)
+            if (!touchMoveVec) {
+                touchMoveVec = new THREE.Vector3();
+            }
+
             function applyLookRotation() {
                 // No clamping → fully free infinite rotation in all directions
                 const q = new THREE.Quaternion();
@@ -998,7 +1000,7 @@
                 }
 
                 // Apply touch-based movement (mobile fly controls)
-                if (isMobile && touchMoveVec.lengthSq() > 0) {
+                if (isMobile && touchMoveVec && touchMoveVec.lengthSq() > 0) {
                     const touchSpeed = 42; // tuned for touch feel
                     camera.position.add(touchMoveVec.clone().multiplyScalar(touchSpeed * delta));
                     // decay so it doesn't keep flying forever after lifting fingers
