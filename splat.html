@@ -1704,6 +1704,11 @@
             lastAlphaJumpDetected = false;
             prevDeviceAlpha = null;
 
+            // Clear quaternion gyro state
+            initialDeviceQuat = null;
+            gyroZeroYaw = 0;
+            gyroZeroPitch = 0;
+
             // Stop recording if it was running
             if (gyroRecordingTimer) {
                 clearTimeout(gyroRecordingTimer);
