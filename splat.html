@@ -549,6 +549,7 @@
         // Last raw device orientation values (used for re-baselining after touch look while gyro is on)
         let lastDeviceAlpha = 0;
         let lastDeviceBeta = 0;
+        let lastDeviceGamma = 0;
 
         // When the user is actively dragging with 1 finger while gyro is on,
         // we pause gyro updates so touch has full control. Re-baseline on finger lift.
@@ -1183,6 +1184,7 @@
                                 gyroInitial = {
                                     alpha: lastDeviceAlpha,
                                     beta: lastDeviceBeta,
+                                    gamma: lastDeviceGamma,
                                     yaw: yaw,
                                     pitch: pitch
                                 };
@@ -1206,6 +1208,7 @@
                             gyroInitial = {
                                 alpha: lastDeviceAlpha,
                                 beta: lastDeviceBeta,
+                                gamma: lastDeviceGamma,
                                 yaw: yaw,
                                 pitch: pitch
                             };
@@ -1494,6 +1497,7 @@
                     gyroInitial = {
                         alpha: lastDeviceAlpha,
                         beta: lastDeviceBeta,
+                        gamma: lastDeviceGamma,
                         yaw: yaw,
                         pitch: pitch
                     };
@@ -1582,9 +1586,13 @@
             if (!gyroInitial) {
                 // First *good* reading — establish relative baseline.
                 // We now apply on this same frame so the user sees immediate response.
+                const g = event.gamma ?? 0;
+                lastDeviceGamma = g;
+
                 gyroInitial = {
                     alpha,
                     beta,
+                    gamma: g,
                     yaw,
                     pitch
                 };
@@ -1597,7 +1605,7 @@
                 console.log('%c[SplatViewer] Gyro: first valid sensor data received (baseline set)', 'color:#68f983');
 
                 // Make last event visible in the on-screen debug box
-                window.__lastGyroEvent = { alpha: Math.round(alpha), beta: Math.round(beta) };
+                window.__lastGyroEvent = { alpha: Math.round(alpha), beta: Math.round(beta), gamma: Math.round(lastDeviceGamma) };
                 return; // baseline frame — no visible jump, next frames will move
             }
 
@@ -1610,25 +1618,40 @@
             // Store latest raw values for potential re-baselining after touch drag
             lastDeviceAlpha = alpha;
             lastDeviceBeta = beta;
+            lastDeviceGamma = event.gamma ?? lastDeviceGamma;
 
-            // === Strong protection against 360 spins when tilting phone upwards ===
-            // On many Android devices, alpha flips ~180° when beta crosses certain vertical thresholds.
-            // We aggressively suppress yaw changes when the phone is pointed steeply up or down.
-            let yawDamping = 1.0;
+            // === Much more robust yaw source selection ===
+            // Problem: On most Android phones, raw alpha (compass) becomes unreliable or flips
+            // once the phone is leveled or tilted upwards. This causes the exact symptoms you described:
+            // good when looking down, broken left/right when level or looking up, plus unwanted sideways drift while tilting up.
+            //
+            // Solution: Switch the source of horizontal (yaw) rotation depending on tilt angle.
+
             const absBeta = Math.abs(beta);
+            let yawDelta;
 
-            if (absBeta > 70) {
-                // Very steep tilt (phone almost vertical or past it) — almost completely ignore alpha
-                yawDamping = 0.02;
-            } else if (absBeta > 50) {
-                // Moderately steep — strong damping
-                yawDamping = Math.max(0.05, 1 - (absBeta - 50) / 25);
+            if (absBeta < 35) {
+                // Phone is relatively flat / looking somewhat down — alpha is usually trustworthy
+                yawDelta = dAlpha;
+            } else {
+                // Phone is leveled or looking up — alpha is flaky.
+                // Use gamma (device left/right tilt) as the horizontal rotation source instead.
+                // This is much more stable for "looking around" when the phone is not flat.
+                const dGamma = (lastDeviceGamma - gyroInitial.gamma) * DEG2RAD;
+                yawDelta = dGamma * -1.15;   // sign tuned for natural feel
             }
 
-            // Mapping (tuned for natural feel after user feedback)
-            //   phone yaw right (alpha ↑) → camera yaw ↑ (view turns right)
+            // Still apply some damping on top when very steep to prevent any remaining jumps
+            if (absBeta > 75) {
+                yawDelta *= 0.1;
+            } else if (absBeta > 60) {
+                yawDelta *= Math.max(0.25, 1 - (absBeta - 60) / 20);
+            }
+
+            // Mapping (tuned for natural feel)
+            //   phone yaw right → camera yaw ↑ (view turns right)
             //   phone tilt top away (beta ↑) → camera pitch ↑ (look up)
-            yaw   = gyroInitial.yaw   + (dAlpha * yawDamping);
+            yaw   = gyroInitial.yaw   + yawDelta;
             pitch = gyroInitial.pitch + (dBeta * 0.82);
 
             const MAX_PITCH = 1.45; // slightly tighter clamp to avoid over-rotation
@@ -1643,7 +1666,7 @@
             }
 
             // Update the on-screen debug box with live values
-            window.__lastGyroEvent = { alpha: Math.round(alpha), beta: Math.round(beta) };
+            window.__lastGyroEvent = { alpha: Math.round(alpha), beta: Math.round(beta), gamma: Math.round(lastDeviceGamma) };
         }
 
         function disableGyro() {
@@ -1693,9 +1716,10 @@
             function update() {
                 if (!gyroStatusBox) return;
                 const last = window.__lastGyroEvent || {};
+                const g = last.gamma ?? lastDeviceGamma;
                 gyroStatusBox.innerHTML = `
                     gyroMode: <b>${gyroMode}</b> &nbsp;|&nbsp; data: <b>${gyroHasReceivedData}</b><br>
-                    last α/β: ${last.alpha ?? '-'} / ${last.beta ?? '-'}<br>
+                    α/β/γ: ${last.alpha ?? '-'} / ${last.beta ?? '-'} / ${g != null ? Math.round(g) : '-'}<br>
                     <span style="opacity:0.7">${gyroPausedByTouch ? 'Touch adjusting...' : 'Drag 1 finger to fine-tune'}</span>
                 `;
             }
