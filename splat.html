@@ -1202,6 +1202,9 @@
                             // Re-baseline gyro to wherever the user dragged the view.
                             // This makes the phone's current tilt/rotation correspond to the final camera angle.
                             if (gyroMode) {
+                                gyroZeroYaw = yaw;
+                                gyroZeroPitch = pitch;
+                                initialDeviceQuat = null;   // force fresh capture on next deviceorientation event
                                 gyroInitial = {
                                     alpha: lastDeviceAlpha,
                                     beta: lastDeviceBeta,
@@ -1226,6 +1229,9 @@
                         gyroPausedByTouch = false;
 
                         if (gyroMode) {
+                            gyroZeroYaw = yaw;
+                            gyroZeroPitch = pitch;
+                            initialDeviceQuat = null;
                             gyroInitial = {
                                 alpha: lastDeviceAlpha,
                                 beta: lastDeviceBeta,
@@ -1244,9 +1250,10 @@
             // Screen orientation change handling for gyro (re-baseline so the view doesn't jump)
             // Only really matters on mobile when gyro is active
             window.addEventListener('orientationchange', () => {
-                if (gyroMode && gyroInitial) {
-                    // Force a fresh baseline on next deviceorientation event
+                if (gyroMode) {
+                    // Force a fresh baseline on next deviceorientation event (covers both legacy + quat paths)
                     gyroInitial = null;
+                    initialDeviceQuat = null;
                     gyroHasReceivedData = false;
                 }
             });
@@ -1513,7 +1520,12 @@
             if (autoBtn) autoBtn.classList.remove('text-[#68f983]');
 
             if (wasGyroActive) {
-                // Keep gyro running — just re-baseline it to the new pose
+                // Keep gyro running — just re-baseline it to the new pose.
+                // Update BOTH the legacy object AND the quaternion state so the active code path re-zeros correctly.
+                gyroZeroYaw = yaw;
+                gyroZeroPitch = pitch;
+                initialDeviceQuat = null;   // next deviceorientation event will recapture using phone's current physical orientation
+
                 if (typeof lastDeviceAlpha === 'number' && typeof lastDeviceBeta === 'number') {
                     gyroInitial = {
                         alpha: lastDeviceAlpha,
@@ -1638,8 +1650,9 @@
             const currentDeviceEuler = new THREE.Euler(betaRad, alphaRad, -gammaRad, 'YXZ');
             const currentDeviceQuat = new THREE.Quaternion().setFromEuler(currentDeviceEuler);
 
-            // Relative rotation since gyro was enabled
-            const relativeQuat = currentDeviceQuat.clone().multiply(initialDeviceQuat.clone().invert());
+            // Relative rotation since gyro was enabled.
+            // Use the conventional order: inv(initial) * current  (rotation that takes baseline device pose to current device pose)
+            const relativeQuat = initialDeviceQuat.clone().invert().multiply(currentDeviceQuat);
 
             // Extract yaw and pitch in the same convention the rest of the app uses
             const relEuler = new THREE.Euler().setFromQuaternion(relativeQuat, 'YXZ');
@@ -1648,9 +1661,9 @@
             lastRelYaw = relEuler.y;
             lastRelPitch = relEuler.x;
 
-            // Apply to the captured zero pose
-            // Note: Pitch often needs to be negated when using quaternion relative rotation
-            // from DeviceOrientationEvent (this is very common when switching from raw alpha/beta deltas).
+            // Apply to the captured zero pose.
+            // The sign on pitch is chosen so that natural phone tilting maps to intuitive up/down look.
+            // Flip the sign here if the feel feels inverted on your device after testing.
             yaw   = gyroZeroYaw   + relEuler.y;
             pitch = gyroZeroPitch - relEuler.x;
 
@@ -1668,7 +1681,6 @@
                 const q = new THREE.Quaternion();
                 q.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
                 camera.quaternion.copy(q);
-                console.log('%c[SplatViewer] Gyro: applied rotation → yaw=' + yaw.toFixed(3) + ' pitch=' + pitch.toFixed(3), 'color:#22c55e');
             }
 
             // Update the on-screen debug box with live values
