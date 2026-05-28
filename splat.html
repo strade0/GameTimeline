@@ -332,6 +332,15 @@
                 <span class="text-xs">Auto</span>
             </button>
             <div class="w-px h-5 bg-white/15"></div>
+            <!-- Gyro / Device Orientation (mobile-only) -->
+            <button id="mobile-gyro"
+                    onclick="toggleGyroMode()"
+                    class="px-4 py-2 text-sm flex items-center gap-1.5 active:bg-white/10 rounded-xl"
+                    title="Use phone gyroscope to control camera look">
+                <i class="ph ph-compass"></i>
+                <span class="text-xs">Gyro</span>
+            </button>
+            <div class="w-px h-5 bg-white/15"></div>
             <button onclick="toggleFullscreen()"
                     class="px-4 py-2 text-sm flex items-center gap-1.5 active:bg-white/10 rounded-xl">
                 <i class="ph ph-arrows-out"></i>
@@ -342,7 +351,7 @@
                 <i class="ph ph-question"></i>
             </button>
         </div>
-        <div class="text-center text-[10px] text-white/40 mt-1.5">Drag 1 finger to look • 2 fingers to move</div>
+        <div id="mobile-controls-hint" class="text-center text-[10px] text-white/40 mt-1.5">Drag 1 finger to look • 2 fingers to move</div>
     </div>
 
     <!-- Large Asset Warning Banner (always visible until dismissed) -->
@@ -519,6 +528,12 @@
         let lastTouchY = 0;
         let touchMoveVec = null;   // initialized safely inside initThreeJS()
         let lastPinchDistance = 0;
+
+        // Gyroscope / DeviceOrientation state (mobile-only feature)
+        let gyroMode = false;
+        let gyroInitial = null;           // { alpha, beta, yaw, pitch } captured on enable for relative control
+        let gyroListenerAttached = false;
+        let gyroHasReceivedData = false;  // used for better user feedback when sensor is silent
 
         // =====================================================
         // HIGHLIGHTS + ANIMATED CAMERA TRANSITIONS + TOUR
@@ -1035,7 +1050,11 @@
                     activeTouchCount = e.touches.length;
 
                     if (e.touches.length === 1) {
-                        // Single finger → start look
+                        // Single finger → start look (unless gyro is driving the camera)
+                        if (gyroMode) {
+                            touchLookActive = false;
+                            return;
+                        }
                         touchLookActive = true;
                         lastTouchX = e.touches[0].clientX;
                         lastTouchY = e.touches[0].clientY;
@@ -1060,6 +1079,11 @@
                     const touches = e.touches;
 
                     if (touches.length === 1 && touchLookActive) {
+                        // Gyro mode takes exclusive control of look — ignore 1-finger drag
+                        if (gyroMode) {
+                            return;
+                        }
+
                         // 1 finger drag = look
                         const dx = touches[0].clientX - lastTouchX;
                         const dy = touches[0].clientY - lastTouchY;
@@ -1130,6 +1154,16 @@
                 });
             }
 
+            // Screen orientation change handling for gyro (re-baseline so the view doesn't jump)
+            // Only really matters on mobile when gyro is active
+            window.addEventListener('orientationchange', () => {
+                if (gyroMode && gyroInitial) {
+                    // Force a fresh baseline on next deviceorientation event
+                    gyroInitial = null;
+                    gyroHasReceivedData = false;
+                }
+            });
+
             // Initialize yaw/pitch from current camera orientation (after initial placement)
             function initYawPitchFromCamera() {
                 const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
@@ -1144,6 +1178,13 @@
             // Resize handler
             window.addEventListener('resize', onResize);
             onResize();
+
+            // Clean up gyro listener if the page is unloaded while gyro is active
+            window.addEventListener('beforeunload', () => {
+                if (gyroListenerAttached) {
+                    window.removeEventListener('deviceorientation', onDeviceOrientation);
+                }
+            });
 
             // Start render loop
             lastFpsUpdate = (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -1347,6 +1388,7 @@
 
         function resetCamera() {
             if (!camera) return;
+            disableGyro();           // gyro would fight the reset animation
             frameSplat();
             autoRotate = false;
             const btn = document.getElementById('auto-rotate-btn');
@@ -1378,6 +1420,176 @@
             }
 
             claimKeyboardFor3D();
+        }
+
+        // =====================================================
+        // GYROSCOPE / DEVICE ORIENTATION CONTROL (Mobile only)
+        // Opt-in button drives camera yaw/pitch from phone sensors.
+        // Uses relative (delta) mode so it works immediately in any direction.
+        // =====================================================
+
+        async function requestGyroPermission() {
+            // iOS 13+ requires explicit user-gesture permission for DeviceOrientation
+            if (typeof DeviceOrientationEvent !== 'undefined' &&
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    return permission === 'granted';
+                } catch (err) {
+                    console.warn('[SplatViewer] Gyro permission request failed:', err);
+                    return false;
+                }
+            }
+            // Android and older browsers: assume available (may still fail silently at event time)
+            return true;
+        }
+
+        function onDeviceOrientation(event) {
+            if (!gyroMode || !camera || isInputLocked) return;
+
+            // More robust check — some Android devices send undefined or NaN on first events
+            const alpha = event.alpha;
+            const beta  = event.beta;
+            if (typeof alpha !== 'number' || typeof beta !== 'number' || isNaN(alpha) || isNaN(beta)) {
+                return;
+            }
+
+            if (!gyroInitial) {
+                // First *good* reading — establish relative baseline.
+                // We now apply on this same frame so the user sees immediate response.
+                gyroInitial = {
+                    alpha,
+                    beta,
+                    yaw,
+                    pitch
+                };
+                gyroHasReceivedData = true;
+
+                // Small log to help debugging on live GitHub version
+                console.log('%c[SplatViewer] Gyro: first valid sensor data received', 'color:#68f983');
+                return; // baseline frame — no visible jump, next frames will move
+            }
+
+            const DEG2RAD = Math.PI / 180;
+
+            // Relative deltas from the moment gyro was enabled
+            const dAlpha = (alpha - gyroInitial.alpha) * DEG2RAD;
+            const dBeta  = (beta  - gyroInitial.beta)  * DEG2RAD;
+
+            // Mapping (tuned for natural "hold phone like a camera" feel):
+            //   phone yaw right (alpha ↑) → camera yaw ↓ (view turns right)
+            //   phone tilt top away (beta ↑) → camera pitch ↓ (look up)
+            // Slight damping on pitch + clamp to avoid extreme flips
+            yaw   = gyroInitial.yaw   - dAlpha;
+            pitch = gyroInitial.pitch - (dBeta * 0.9);
+
+            const MAX_PITCH = 1.50; // ~86° — keeps behavior consistent with highlight poses
+            pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, pitch));
+
+            applyLookRotation();
+        }
+
+        function disableGyro() {
+            if (!gyroMode) return;
+
+            gyroMode = false;
+            gyroInitial = null;
+            gyroHasReceivedData = false;
+
+            if (gyroListenerAttached) {
+                window.removeEventListener('deviceorientation', onDeviceOrientation);
+                gyroListenerAttached = false;
+            }
+
+            // Restore normal hint text
+            const hint = document.getElementById('mobile-controls-hint');
+            if (hint) hint.textContent = 'Drag 1 finger to look • 2 fingers to move';
+
+            // Update button appearance
+            const gyroBtn = document.getElementById('mobile-gyro');
+            if (gyroBtn) gyroBtn.classList.remove('text-[#68f983]');
+
+            console.log('[SplatViewer] Gyro mode disabled');
+        }
+
+        async function toggleGyroMode() {
+            if (!isMobile) return;
+
+            const gyroBtn = document.getElementById('mobile-gyro');
+            const hintEl = document.getElementById('mobile-controls-hint');
+
+            if (gyroMode) {
+                disableGyro();
+                return;
+            }
+
+            // Turning on
+            claimKeyboardFor3D();
+
+            // Force auto-rotate off — it conflicts with gyro control
+            if (autoRotate) {
+                autoRotate = false;
+                const autoBtn = document.getElementById('mobile-auto-rotate');
+                if (autoBtn) autoBtn.classList.remove('text-[#68f983]');
+            }
+
+            const granted = await requestGyroPermission();
+            if (!granted) {
+                const msg = document.createElement('div');
+                msg.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-2 rounded-2xl text-sm bg-black/75 border border-white/25 text-white/90`;
+                msg.textContent = 'Gyro not available (permission denied or unsupported device)';
+                document.body.appendChild(msg);
+                setTimeout(() => msg.remove(), 2800);
+                return;
+            }
+
+            // Activate relative gyro control
+            gyroMode = true;
+            gyroInitial = null;
+            gyroHasReceivedData = false;
+
+            if (!gyroListenerAttached) {
+                window.addEventListener('deviceorientation', onDeviceOrientation, { passive: true });
+                gyroListenerAttached = true;
+            }
+
+            if (gyroBtn) gyroBtn.classList.add('text-[#68f983]');
+
+            if (hintEl) {
+                hintEl.textContent = 'Gyro active — tilt & rotate phone to look';
+            }
+
+            // Short confirmation toast
+            const confirm = document.createElement('div');
+            confirm.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-1.5 rounded-2xl text-xs bg-[#68f983]/90 text-black font-medium shadow-lg`;
+            confirm.textContent = 'Gyro enabled';
+            document.body.appendChild(confirm);
+            setTimeout(() => {
+                confirm.style.transition = 'opacity 280ms ease';
+                confirm.style.opacity = '0';
+                setTimeout(() => confirm.remove(), 180);
+            }, 850);
+
+            console.log('%c[SplatViewer] Gyro mode enabled (relative device orientation)', 'color:#68f983');
+
+            // === Important for live testing ===
+            // If we don't receive any real sensor data within 1.8s, warn the user.
+            // This catches the common case where Chrome silently blocks sensors over HTTP
+            // or the device has no gyro / sensors are disabled in browser settings.
+            setTimeout(() => {
+                if (gyroMode && !gyroHasReceivedData) {
+                    console.warn('%c[SplatViewer] WARNING: Gyro enabled but no deviceorientation events with valid data arrived after 1.8s', 'color:#f59e0b');
+                    const warn = document.createElement('div');
+                    warn.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-2 rounded-2xl text-sm bg-amber-500/90 text-black font-medium max-w-[260px] text-center`;
+                    warn.textContent = 'Gyro not receiving data — try ngrok/https or check phone sensor settings';
+                    document.body.appendChild(warn);
+                    setTimeout(() => {
+                        warn.style.transition = 'opacity 300ms';
+                        warn.style.opacity = '0';
+                        setTimeout(() => warn.remove(), 200);
+                    }, 4200);
+                }
+            }, 1800);
         }
 
         function toggleFullscreen() {
@@ -1525,6 +1737,8 @@
         function animateCameraTo(targetPos, targetYaw, targetPitch, durationMs = 3500) {
             if (!camera) return;
 
+            disableGyro(); // gyro would fight the scripted camera move
+
             // Cancel any running tour or previous transition
             if (isTourActive) {
                 isTourActive = false;
@@ -1577,6 +1791,8 @@
                 return;
             }
 
+            disableGyro(); // gyro would fight the scripted tour
+
             // Cancel any running highlight transition
             cameraTransition = null;
 
@@ -1616,6 +1832,7 @@
         function endTour() {
             if (!isTourActive) return;
 
+            disableGyro(); // defensive — ensure user regains full manual control
             isTourActive = false;
             isInputLocked = false;
             tourCurve = null;
@@ -1786,6 +2003,10 @@
                                 <div class="w-9 text-right text-gray-400 shrink-0">2 fingers</div>
                                 <div>Drag vertical = forward/back • Horizontal = strafe • Pinch = up/down</div>
                             </div>
+                            <div class="flex gap-4">
+                                <div class="w-9 text-right text-gray-400 shrink-0"><i class="ph ph-compass"></i></div>
+                                <div><span class="font-medium">Gyro</span> button — use phone sensors to look around (tap to enable)</div>
+                            </div>
                         </div>
                     </div>
                     <div class="bg-white/5 px-7 py-4 text-xs text-gray-400 border-t border-white/20">
@@ -1896,6 +2117,7 @@
                             <div class="space-y-1.5 text-[13.5px] text-white/90">
                                 <div><span class="font-medium text-white">1 finger drag</span> <span class="text-white/60">— Look around</span></div>
                                 <div><span class="font-medium text-white">2 fingers</span> <span class="text-white/60">— Move (vertical/horizontal drag, pinch up/down)</span></div>
+                                <div><span class="font-medium text-white">Gyro button</span> <span class="text-white/60">— Tilt/rotate phone to control camera (tap Gyro in bottom bar)</span></div>
                             </div>
                         </div>
 
@@ -2119,6 +2341,12 @@
         // Expose control functions to the global scope so HTML onclick attributes work
         window.toggleAutoRotate = toggleAutoRotate;
         window.resetCamera = resetCamera;
+        window.toggleGyroMode = toggleGyroMode;   // mobile-only gyro look control
+        // Diagnostic helpers (useful when testing on GitHub Pages)
+        window.gyroDebug = {
+            get state() { return { gyroMode, gyroHasReceivedData, gyroInitial }; },
+            forceDisable: () => disableGyro()
+        };
         window.setSplatQuality = setSplatQuality;
         window.setQualityLevel = setQualityLevel;
         window.toggleFpsCounter = toggleFpsCounter;
@@ -2137,6 +2365,7 @@
         window.SPLAT_DEBUG = { 
             resetCamera, 
             toggleAutoRotate, 
+            toggleGyroMode,          // mobile-only — use phone gyro for camera rotation
             frameSplat, 
             setSplatQuality, 
             setQualityLevel, 
@@ -2149,6 +2378,8 @@
             renderHighlightsList,
             isMobile,
             isLocalMode: !useRemote,   // useful for debugging
+            get gyroMode() { return gyroMode; },           // live read-only view of gyro state
+            get gyroHasReceivedData() { return gyroHasReceivedData; },  // diagnostic: did we ever get real sensor numbers?
             HIGHLIGHT_VIEWS,
             TOUR_PATH_KEYFRAMES
         };
