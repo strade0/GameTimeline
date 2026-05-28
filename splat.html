@@ -1165,12 +1165,17 @@
 
             // Apply delta to the camera orientation captured at baseline
             const newQ = gyroInitial.cameraQ.clone().multiply(deltaQ);
-            camera.quaternion.copy(newQ);
 
-            // Keep yaw/pitch in sync so mouse/touch look continues correctly after gyro is disabled
+            // --- HORIZON LOCK ---
+            // Extract only yaw and pitch from the resulting quaternion, discarding
+            // any roll so the camera always stays level regardless of phone tilt.
             const euler = new THREE.Euler().setFromQuaternion(newQ, 'YXZ');
             yaw   = euler.y;
-            pitch = euler.x;
+            pitch = Math.max(-Math.PI * 0.48, Math.min(Math.PI * 0.48, euler.x));
+
+            // Reconstruct with roll forced to zero
+            const lockedQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+            camera.quaternion.copy(lockedQ);
         }
 
         function disableGyro() {
