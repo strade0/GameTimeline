@@ -559,6 +559,10 @@
         let currentYawSource = 'alpha'; // 'alpha' or 'gamma' - shown in debug panel
         let lastYawDamping = 1.0;
 
+        // === Gyro Recording for Debugging ===
+        let gyroRecording = null;        // { startTime, samples: [] }
+        let gyroRecordingTimer = null;   // setTimeout for 10s stop
+
         // Default starting camera pose (used on load + Reset on all devices)
         const DEFAULT_CAMERA_POSE = {
             position: [3.52, 7.299, -1.795],
@@ -1681,6 +1685,9 @@
 
             // Update the on-screen debug box with live values
             window.__lastGyroEvent = { alpha: Math.round(alpha), beta: Math.round(beta), gamma: Math.round(lastDeviceGamma) };
+
+            // Record for debugging (first 10 seconds after enabling gyro)
+            recordGyroSampleIfNeeded(alpha, beta, lastDeviceGamma, yaw, pitch, currentYawSource, lastYawDamping, gyroPausedByTouch);
         }
 
         function disableGyro() {
@@ -1713,6 +1720,13 @@
 
             currentYawSource = 'alpha';
             lastYawDamping = 1.0;
+
+            // Stop recording if it was running
+            if (gyroRecordingTimer) {
+                clearTimeout(gyroRecordingTimer);
+                gyroRecordingTimer = null;
+            }
+            gyroRecording = null;
 
             console.log('[SplatViewer] Gyro mode disabled');
         }
@@ -1758,8 +1772,9 @@
                     }
                 }
 
+                const recTag = gyroRecording ? ' [RECORDING 10s]' : '';
                 gyroStatusBox.innerHTML = `
-                    <div style="margin-bottom:1px; font-size:10px; opacity:0.85"><b>Gyro Live Debug</b></div>
+                    <div style="margin-bottom:1px; font-size:10px; opacity:0.85"><b>Gyro Live Debug${recTag}</b></div>
                     <div>Raw → α=${last.alpha ?? '-'}  β=${last.beta ?? '-'}  γ=${g != null ? Math.round(g) : '-'}</div>
                     <div>${sourceLine}</div>
                     <div>${deltaInfo || 'No baseline delta'}</div>
@@ -1780,6 +1795,102 @@
                 gyroStatusBox.remove();
                 gyroStatusBox = null;
             };
+        }
+
+        // =====================================================
+        // GYRO RECORDING FOR DEBUGGING (first 10 seconds after enabling)
+        // =====================================================
+        function startGyroRecording() {
+            if (gyroRecordingTimer) {
+                clearTimeout(gyroRecordingTimer);
+            }
+
+            gyroRecording = {
+                startTime: Date.now(),
+                samples: []
+            };
+
+            console.log('%c[SplatViewer] Started 10-second gyro recording (will auto-download)', 'color:#f59e0b');
+
+            gyroRecordingTimer = setTimeout(() => {
+                stopGyroRecordingAndDownload();
+            }, 10000);
+        }
+
+        function stopGyroRecordingAndDownload() {
+            if (!gyroRecording || gyroRecording.samples.length === 0) {
+                gyroRecording = null;
+                gyroRecordingTimer = null;
+                return;
+            }
+
+            const duration = Date.now() - gyroRecording.startTime;
+            const count = gyroRecording.samples.length;
+
+            let txt = '';
+            txt += '=== Gyroscope Debug Recording ===\n';
+            txt += `Duration: ${duration} ms\n`;
+            txt += `Samples recorded: ${count}\n`;
+            txt += `Start time: ${new Date(gyroRecording.startTime).toISOString()}\n`;
+            txt += `User Agent: ${navigator.userAgent}\n`;
+            txt += '\n';
+            txt += 'Time(ms)\tAlpha\tBeta\tGamma\tYaw\tPitch\tSource\tDamping\tTouch\n';
+
+            gyroRecording.samples.forEach(s => {
+                txt += `${s.t}\t${s.alpha}\t${s.beta}\t${s.gamma}\t${s.yaw.toFixed(4)}\t${s.pitch.toFixed(4)}\t${s.source}\t${s.damping}\t${s.touch ? 1 : 0}\n`;
+            });
+
+            const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            const ts = new Date(gyroRecording.startTime).toISOString().replace(/[:.]/g, '-');
+            a.download = `gyro-recording-${ts}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            console.log(`%c[SplatViewer] Gyro recording downloaded (${count} samples)`, 'color:#22c55e');
+
+            // Small confirmation on phone
+            const done = document.createElement('div');
+            done.className = `fixed bottom-32 left-1/2 -translate-x-1/2 z-[99999] px-4 py-1.5 rounded-2xl text-xs bg-[#22c55e] text-black font-medium`;
+            done.textContent = `Gyro log saved (${count} samples)`;
+            document.body.appendChild(done);
+            setTimeout(() => {
+                done.style.transition = 'opacity 300ms';
+                done.style.opacity = '0';
+                setTimeout(() => done.remove(), 200);
+            }, 2200);
+
+            gyroRecording = null;
+            gyroRecordingTimer = null;
+        }
+
+        // Called every time onDeviceOrientation runs (throttled inside)
+        function recordGyroSampleIfNeeded(alpha, beta, gamma, yaw, pitch, source, damping, touchOverride) {
+            if (!gyroRecording) return;
+
+            const now = Date.now();
+            // Throttle to ~30 samples per second max
+            const lastSample = gyroRecording.samples[gyroRecording.samples.length - 1];
+            if (lastSample && (now - gyroRecording.startTime - lastSample.t) < 33) {
+                return;
+            }
+
+            gyroRecording.samples.push({
+                t: now - gyroRecording.startTime,
+                alpha: Math.round(alpha * 10) / 10,
+                beta: Math.round(beta * 10) / 10,
+                gamma: Math.round(gamma * 10) / 10,
+                yaw: yaw,
+                pitch: pitch,
+                source: source,
+                damping: Math.round(damping * 100),
+                touch: !!touchOverride
+            });
         }
 
         async function toggleGyroMode() {
@@ -1871,6 +1982,9 @@
 
             // Extra visible live status for testing without USB debugging
             showGyroLiveStatus();
+
+            // === Start 10-second recording for debugging ===
+            startGyroRecording();
 
             // === Important for live testing ===
             // If we don't receive any real sensor data within 1.8s, warn the user.
