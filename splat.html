@@ -340,6 +340,7 @@
                 </div>
                 <h2 class="text-2xl font-semibold tracking-tight">Loading Gaussian Splat</h2>
                 <p class="text-gray-400 mt-1.5 text-sm">Newsest • 5M source (LoD on low-end GPUs)</p>
+                <div id="loading-mode" class="mt-2 text-[10px] font-mono uppercase tracking-[1px] text-[#68f983]/70"></div>
             </div>
 
             <div class="glass-card rounded-2xl p-6">
@@ -554,6 +555,14 @@
 
             console.log(`%c[SplatViewer] Mode: ${useRemote ? 'REMOTE (CDN)' : 'LOCAL'} | Host: ${window.location.hostname}`, 'color:#68f983');
 
+            // Show mode visibly (helps debug mobile LAN vs CDN issues)
+            const modeEl = document.getElementById('loading-mode');
+            if (modeEl) {
+                modeEl.textContent = useRemote
+                    ? 'REMOTE (CDN)'
+                    : 'LOCAL FILES • ' + window.location.hostname;
+            }
+
             let splatURL = null;
             let response = null;
 
@@ -563,9 +572,27 @@
             } else {
                 for (const file of candidates) {
                     try {
-                        const head = await fetch(file, { method: 'HEAD' });
-                        if (head.ok) { splatURL = file; response = await fetch(file); break; }
-                    } catch (err) { console.warn(`[SplatViewer] Could not access ${file}`, err); }
+                        // Some servers (and mobile browsers) are picky about HEAD on large binaries.
+                        // Try HEAD first for speed, but fall back to a full GET if HEAD fails.
+                        let headOk = false;
+                        try {
+                            const head = await fetch(file, { method: 'HEAD' });
+                            headOk = head.ok;
+                        } catch (_) { /* ignore HEAD errors */ }
+
+                        if (headOk) {
+                            response = await fetch(file);
+                        } else {
+                            // Fallback: attempt GET directly (needed for some mobile / simple static servers)
+                            response = await fetch(file);
+                        }
+                        if (response && response.ok) {
+                            splatURL = file;
+                            break;
+                        }
+                    } catch (err) {
+                        console.warn(`[SplatViewer] Could not access ${file}`, err);
+                    }
                 }
             }
 
@@ -627,7 +654,8 @@
 
                 let readyCheckAttempts = 0;
                 const checkIntervalMs  = 650;
-                const forceRevealAfterMs = 1000 * 70;
+                // Mobile often needs more time for the large GPU upload even at Potato quality
+                const forceRevealAfterMs = 1000 * (isMobile ? 120 : 70);
                 const forceRevealAt    = Date.now() + forceRevealAfterMs;
 
                 const checkReady = setInterval(() => {
@@ -678,10 +706,34 @@
 
             } catch (err) {
                 console.error('Splat loading error:', err);
+
+                // Show a helpful error instead of silently hiding (very common on mobile)
                 setTimeout(() => {
-                    if (loadingOverlay && !loadingOverlay.classList.contains('loading-hidden')) hideLoadingOverlay();
+                    if (loadingOverlay && !loadingOverlay.classList.contains('loading-hidden')) {
+                        loadingOverlay.innerHTML = `
+                            <div class="max-w-md w-full text-center px-6">
+                                <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/30 mb-4">
+                                    <i class="ph ph-warning text-3xl text-red-400"></i>
+                                </div>
+                                <h2 class="text-xl font-semibold tracking-tight text-red-400 mb-2">Failed to load the splat</h2>
+                                <div class="text-sm text-gray-300 mb-4 whitespace-pre-line">${(err && err.message) || 'Unknown error during download or GPU upload.'}</div>
+
+                                <div class="text-left text-xs bg-black/40 border border-white/10 rounded-xl p-4 mb-4">
+                                    <div class="font-semibold text-white/80 mb-1">Common on mobile:</div>
+                                    <ul class="list-disc pl-5 space-y-1 text-white/70">
+                                        <li>Accessing via LAN? Add <code class="text-[#68f983]">?remote</code> to the URL to use the CDN copy.</li>
+                                        <li>Make sure your local server is reachable from the phone (not just localhost).</li>
+                                        <li>Large files (292 MB) can be blocked by mobile data saver or strict firewalls.</li>
+                                        <li>Try a different browser (Chrome or Firefox recommended on Android).</li>
+                                    </ul>
+                                </div>
+
+                                <button onclick="location.reload()" class="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm active:bg-white/20">Reload page</button>
+                            </div>
+                        `;
+                    }
                     if (!isLoaded) isLoaded = true;
-                }, 2500);
+                }, 800);
             }
         }
 
@@ -689,7 +741,7 @@
             renderer = new THREE.WebGLRenderer({
                 antialias: false,
                 alpha: false,
-                powerPreference: "high-performance",
+                powerPreference: isMobile ? "default" : "high-performance",
                 preserveDrawingBuffer: false,
             });
             renderer.setPixelRatio(1);
@@ -1723,13 +1775,16 @@
             const overlay = document.getElementById('loading-overlay');
             if (overlay) {
                 overlay.innerHTML = `
-                    <div class="text-center p-6">
-                        <div class="text-red-400 mb-3 text-lg font-semibold">Failed to load the 3D scene</div>
-                        <div class="text-sm text-gray-300 max-w-lg mx-auto whitespace-pre-line">${err.message || 'Unknown error'}</div>
-                        <div class="text-xs text-gray-500 mt-4">
-                            Make sure you're running a local server (e.g. <code>python -m http.server</code>)<br>
-                            and that the remote splat URL is publicly accessible.
+                    <div class="max-w-md w-full text-center px-6">
+                        <div class="text-red-400 mb-3 text-lg font-semibold">Failed to initialize viewer</div>
+                        <div class="text-sm text-gray-300 mb-4 whitespace-pre-line">${err.message || 'Unknown error'}</div>
+                        <div class="text-xs text-gray-400 bg-black/40 border border-white/10 rounded-xl p-4 text-left">
+                            Common fixes:<br>
+                            • Use a local web server (not file://)<br>
+                            • On mobile: try adding <code class="text-[#68f983]">?remote</code> to the URL<br>
+                            • Check browser console for WebGL / import errors
                         </div>
+                        <button onclick="location.reload()" class="mt-4 px-5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm">Reload</button>
                     </div>
                 `;
             }
