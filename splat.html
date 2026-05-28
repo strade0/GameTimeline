@@ -1467,6 +1467,9 @@
 
                 // Small log to help debugging on live GitHub version
                 console.log('%c[SplatViewer] Gyro: first valid sensor data received', 'color:#68f983');
+
+                // Make last event visible in the on-screen debug box
+                window.__lastGyroEvent = { alpha: Math.round(alpha), beta: Math.round(beta) };
                 return; // baseline frame — no visible jump, next frames will move
             }
 
@@ -1487,6 +1490,9 @@
             pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, pitch));
 
             applyLookRotation();
+
+            // Update the on-screen debug box with live values
+            window.__lastGyroEvent = { alpha: Math.round(alpha), beta: Math.round(beta) };
         }
 
         function disableGyro() {
@@ -1509,14 +1515,73 @@
             const gyroBtn = document.getElementById('mobile-gyro');
             if (gyroBtn) gyroBtn.classList.remove('text-[#68f983]');
 
+            // Clean up the on-screen live status panel
+            if (gyroStatusInterval) { clearInterval(gyroStatusInterval); gyroStatusInterval = null; }
+            if (gyroStatusBox) { gyroStatusBox.remove(); gyroStatusBox = null; }
+
             console.log('[SplatViewer] Gyro mode disabled');
         }
 
-        async function toggleGyroMode() {
-            if (!isMobile) return;
+        // Small live debug panel that appears on screen (no USB needed)
+        let gyroStatusBox = null;
+        let gyroStatusInterval = null;
 
+        function showGyroLiveStatus() {
+            if (gyroStatusBox) gyroStatusBox.remove();
+
+            gyroStatusBox = document.createElement('div');
+            gyroStatusBox.id = 'gyro-live-status';
+            gyroStatusBox.className = `fixed bottom-[78px] left-1/2 -translate-x-1/2 z-[99999] px-3 py-1.5 rounded-xl text-[11px] font-mono bg-black/80 border border-[#68f983]/40 text-[#68f983] shadow-xl`;
+            gyroStatusBox.style.minWidth = '220px';
+            document.body.appendChild(gyroStatusBox);
+
+            function update() {
+                if (!gyroStatusBox) return;
+                const last = window.__lastGyroEvent || {};
+                gyroStatusBox.innerHTML = `
+                    gyroMode: <b>${gyroMode}</b> &nbsp;|&nbsp; data: <b>${gyroHasReceivedData}</b><br>
+                    last α/β: ${last.alpha ?? '-'} / ${last.beta ?? '-'}
+                `;
+            }
+
+            update();
+            if (gyroStatusInterval) clearInterval(gyroStatusInterval);
+            gyroStatusInterval = setInterval(update, 350);
+
+            // Tap the status box to hide it
+            gyroStatusBox.onclick = () => {
+                if (gyroStatusInterval) clearInterval(gyroStatusInterval);
+                gyroStatusBox.remove();
+                gyroStatusBox = null;
+            };
+        }
+
+        async function toggleGyroMode() {
             const gyroBtn = document.getElementById('mobile-gyro');
             const hintEl = document.getElementById('mobile-controls-hint');
+
+            // === DEBUGGING AID ===
+            // We no longer hard-return on !isMobile. Instead we show very clear on-screen feedback.
+            // This helps diagnose why gyro isn't activating on certain Android phones.
+            if (!isMobile) {
+                const debugBox = document.createElement('div');
+                debugBox.className = `fixed bottom-20 left-1/2 -translate-x-1/2 z-[99999] max-w-[320px] px-4 py-3 rounded-2xl text-xs bg-red-600/95 text-white font-medium shadow-2xl`;
+                debugBox.innerHTML = `
+                    <div style="font-weight:700;margin-bottom:6px">Gyro blocked — not detected as mobile</div>
+                    <div>isMobile = <span style="color:#ffeb3b">false</span></div>
+                    <div style="opacity:0.9;margin-top:4px">userAgent: ${navigator.userAgent.slice(0,80)}...</div>
+                    <div style="margin-top:6px;font-size:10px;opacity:0.85">Touch points: ${navigator.maxTouchPoints || 0} &nbsp;|&nbsp; ontouchstart: ${'ontouchstart' in window}</div>
+                    <div style="margin-top:8px;font-size:10px">Try: Chrome menu → "Desktop site" (turn OFF) then reload</div>
+                `;
+                document.body.appendChild(debugBox);
+                setTimeout(() => {
+                    debugBox.style.transition = 'opacity 400ms';
+                    debugBox.style.opacity = '0';
+                    setTimeout(() => debugBox.remove(), 300);
+                }, 6500);
+                console.warn('[SplatViewer] Gyro button clicked but isMobile === false. Details above.');
+                return;
+            }
 
             if (gyroMode) {
                 disableGyro();
@@ -1572,6 +1637,9 @@
 
             console.log('%c[SplatViewer] Gyro mode enabled (relative device orientation)', 'color:#68f983');
 
+            // Extra visible live status for testing without USB debugging
+            showGyroLiveStatus();
+
             // === Important for live testing ===
             // If we don't receive any real sensor data within 1.8s, warn the user.
             // This catches the common case where Chrome silently blocks sensors over HTTP
@@ -1580,14 +1648,14 @@
                 if (gyroMode && !gyroHasReceivedData) {
                     console.warn('%c[SplatViewer] WARNING: Gyro enabled but no deviceorientation events with valid data arrived after 1.8s', 'color:#f59e0b');
                     const warn = document.createElement('div');
-                    warn.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-2 rounded-2xl text-sm bg-amber-500/90 text-black font-medium max-w-[260px] text-center`;
-                    warn.textContent = 'Gyro not receiving data — try ngrok/https or check phone sensor settings';
+                    warn.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-2.5 rounded-2xl text-sm bg-amber-500/95 text-black font-medium max-w-[300px] text-center shadow-xl`;
+                    warn.innerHTML = `Gyro not receiving data<br><span style="font-size:10px">Tap the green status box above for live values</span>`;
                     document.body.appendChild(warn);
                     setTimeout(() => {
                         warn.style.transition = 'opacity 300ms';
                         warn.style.opacity = '0';
                         setTimeout(() => warn.remove(), 200);
-                    }, 4200);
+                    }, 5200);
                 }
             }, 1800);
         }
