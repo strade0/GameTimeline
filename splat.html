@@ -266,10 +266,10 @@
     <!-- Reset to Default View (only visible while Gyro is active) -->
     <button id="mobile-reset-default"
             onclick="resetToDefaultView()"
-            class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] lg:hidden hidden
+            class="fixed bottom-16 left-1/2 -translate-x-1/2 z-[9999] lg:hidden hidden
                    px-5 py-2 rounded-2xl text-sm flex items-center gap-2
                    bg-[#1a1a1a] text-white/90 border border-white/15"
-            style="transition: none; transform: none; -webkit-tap-highlight-color: transparent;">
+            style="transition: none; -webkit-tap-highlight-color: transparent;">
         <i class="ph ph-target text-base"></i>
         <span>Reset to default view</span>
     </button>
@@ -1141,11 +1141,6 @@
             lastDeviceAlpha = alpha;
             lastDeviceBeta  = beta;
             lastDeviceGamma = gamma;
-            window.__lastGyroEvent = {
-                alpha: Math.round(alpha),
-                beta:  Math.round(beta),
-                gamma: Math.round(gamma)
-            };
 
             const currentDeviceQ = deviceOrientationToWorldQuat(alpha, beta, gamma);
 
@@ -1196,51 +1191,10 @@
             const gyroBtn = document.getElementById('mobile-gyro');
             if (gyroBtn) gyroBtn.classList.remove('text-[#68f983]');
 
-            if (gyroStatusInterval) { clearInterval(gyroStatusInterval); gyroStatusInterval = null; }
-            if (gyroStatusBox)      { gyroStatusBox.remove(); gyroStatusBox = null; }
-
             const resetBtn = document.getElementById('mobile-reset-default');
             if (resetBtn) resetBtn.classList.add('hidden');
 
             console.log('[SplatViewer] Gyro mode disabled');
-        }
-
-        let gyroStatusBox      = null;
-        let gyroStatusInterval = null;
-
-        function showGyroLiveStatus() {
-            if (gyroStatusBox) gyroStatusBox.remove();
-
-            gyroStatusBox = document.createElement('div');
-            gyroStatusBox.id        = 'gyro-live-status';
-            gyroStatusBox.className = `fixed bottom-[78px] left-1/2 -translate-x-1/2 z-[99999] px-3 py-2 rounded-xl text-[10.5px] font-mono bg-black/90 border border-[#68f983]/60 text-[#68f983] shadow-xl`;
-            gyroStatusBox.style.minWidth  = '265px';
-            gyroStatusBox.style.lineHeight = '1.3';
-            document.body.appendChild(gyroStatusBox);
-
-            function update() {
-                if (!gyroStatusBox || !gyroMode) return;
-                const last = window.__lastGyroEvent || {};
-                gyroStatusBox.innerHTML = `
-                    <div style="margin-bottom:1px; font-size:10px; opacity:0.85"><b>Gyro Live Debug (quat-based)</b></div>
-                    <div>Raw → α=${last.alpha ?? '-'}  β=${last.beta ?? '-'}  γ=${last.gamma ?? '-'}</div>
-                    <div>Camera → yaw=${yaw.toFixed(2)}  pitch=${pitch.toFixed(2)}</div>
-                    <div>Baseline: ${gyroInitial ? 'set ✓' : 'waiting…'}</div>
-                    <div style="margin-top:2px; font-size:9.5px; opacity:0.7">
-                        ${gyroPausedByTouch ? 'Touch drag active (gyro paused)' : 'Drag 1 finger = fine-tune view'}
-                    </div>
-                `;
-            }
-
-            update();
-            if (gyroStatusInterval) clearInterval(gyroStatusInterval);
-            gyroStatusInterval = setInterval(update, 280);
-
-            gyroStatusBox.onclick = () => {
-                if (gyroStatusInterval) clearInterval(gyroStatusInterval);
-                gyroStatusBox.remove();
-                gyroStatusBox = null;
-            };
         }
 
         async function requestGyroPermission() {
@@ -1314,7 +1268,7 @@
             const resetBtn = document.getElementById('mobile-reset-default');
             if (resetBtn) resetBtn.classList.remove('hidden');
 
-            if (hintEl) hintEl.textContent = 'Gyro active — drag 1 finger to fine-tune. Tap green box for live data';
+            if (hintEl) hintEl.textContent = 'Gyro active — drag 1 finger to fine-tune view';
 
             const confirm = document.createElement('div');
             confirm.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-1.5 rounded-2xl text-xs bg-[#68f983]/90 text-black font-medium shadow-lg`;
@@ -1327,7 +1281,6 @@
             }, 850);
 
             console.log('%c[SplatViewer] Gyro mode enabled (quaternion-based)', 'color:#68f983');
-            showGyroLiveStatus();
 
             // Warn if no sensor data arrives within 1.8s
             setTimeout(() => {
@@ -1335,7 +1288,7 @@
                     console.warn('%c[SplatViewer] WARNING: no deviceorientation events after 1.8s', 'color:#f59e0b');
                     const warn = document.createElement('div');
                     warn.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-2.5 rounded-2xl text-sm bg-amber-500/95 text-black font-medium max-w-[300px] text-center shadow-xl`;
-                    warn.innerHTML = `Gyro not receiving data<br><span style="font-size:10px">Tap the green status box for live values</span>`;
+                    warn.innerHTML = `Gyro not receiving data<br><span style="font-size:10px">Check device orientation permissions or try again</span>`;
                     document.body.appendChild(warn);
                     setTimeout(() => {
                         warn.style.transition = 'opacity 300ms';
