@@ -5,6 +5,7 @@
     <meta name="googlebot" content="noindex, nofollow">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Interactive 3D Gaussian splat viewer for the Newest classroom reconstruction.">
     <link rel="icon" type="image/png" href="favicon.png">
     <title>Game Dev Tracker • Gaussian Splat</title>
 
@@ -37,16 +38,6 @@
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
             transition: all 0.3s ease;
             pointer-events: auto;
-        }
-
-        #left-panels .floating-panel.glass-card {
-            transition: none !important;
-        }
-
-        #left-panels .floating-panel.glass-card:hover {
-            background: rgba(26, 26, 26, 0.85) !important;
-            border-color: rgba(255, 255, 255, 0.12) !important;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4) !important;
         }
 
         #tour-stop-pill {
@@ -209,7 +200,7 @@
                     </div>
                     <div>
                         <div class="text-white font-semibold tracking-tight">Gaussian Splat</div>
-                        <div class="text-[10px] text-gray-500 -mt-0.5">3D Modelling • Newsest</div>
+                        <div class="text-[10px] text-gray-500 -mt-0.5">3D Modelling • Newest</div>
                     </div>
                 </div>
             </div>
@@ -369,7 +360,7 @@
                     <i class="ph ph-cube text-4xl text-[#68f983]"></i>
                 </div>
                 <h2 class="text-2xl font-semibold tracking-tight">Loading Gaussian Splat</h2>
-                <p class="text-gray-400 mt-1.5 text-sm">Newsest • 5M source (LoD on low-end GPUs)</p>
+                <p class="text-gray-400 mt-1.5 text-sm">Newest • 5M source (LoD on low-end GPUs)</p>
                 <div id="loading-mode" class="mt-2 text-[10px] font-mono uppercase tracking-[1px] text-[#68f983]/70"></div>
             </div>
 
@@ -433,7 +424,6 @@
 
     <script type="module">
         import * as THREE from "three";
-        import { FlyControls } from "three/addons/controls/FlyControls.js";
         import { SparkRenderer, SplatMesh } from "@sparkjsdev/spark";
 
         // DOM references
@@ -452,6 +442,16 @@
         let autoRotate = false;
         let isLoaded = false;
         let clock = new THREE.Clock();
+        let currentQualityLevel = 'low';
+
+        // Reusable math objects (hoisted to avoid per-frame GC pressure in animate)
+        const _vForward = new THREE.Vector3();
+        const _vRight   = new THREE.Vector3();
+        const _vUp      = new THREE.Vector3(0, 1, 0);
+        const _vMove    = new THREE.Vector3();
+        const _vTemp    = new THREE.Vector3();
+        const _qTemp    = new THREE.Quaternion();
+        const _eTemp    = new THREE.Euler(0, 0, 0, 'YXZ');
 
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
                          ('ontouchstart' in window) ||
@@ -484,6 +484,10 @@
             const existing = document.getElementById('splat-intro-modal') || document.getElementById('splat-help-modal');
             if (existing) existing.remove();
             currentOpenMenu = null;
+        }
+
+        function escapeHtml(str) {
+            return String(str || '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
         }
 
         let frameCount   = 0;
@@ -614,7 +618,7 @@
             loadStartTime = Date.now();
 
             const REMOTE_SPLAT_URL = useRemote ? "https://assets.hellobruh.com/PLYcompressed.ply" : null;
-            const candidates = useRemote ? [] : ['./PLYcompressed.ply', './Compressed.spz', './Newsest.ply'];
+            const candidates = useRemote ? [] : ['./PLYcompressed.ply', './Compressed.spz', './Newest.ply'];
 
             console.log(`%c[SplatViewer] Mode: ${useRemote ? 'REMOTE (CDN)' : 'LOCAL'} | Host: ${window.location.hostname}`, 'color:#68f983');
 
@@ -635,20 +639,8 @@
             } else {
                 for (const file of candidates) {
                     try {
-                        // Some servers (and mobile browsers) are picky about HEAD on large binaries.
-                        // Try HEAD first for speed, but fall back to a full GET if HEAD fails.
-                        let headOk = false;
-                        try {
-                            const head = await fetch(file, { method: 'HEAD' });
-                            headOk = head.ok;
-                        } catch (_) { /* ignore HEAD errors */ }
-
-                        if (headOk) {
-                            response = await fetch(file);
-                        } else {
-                            // Fallback: attempt GET directly (needed for some mobile / simple static servers)
-                            response = await fetch(file);
-                        }
+                        // Direct GET — HEAD probes add latency with no practical benefit for large binary assets
+                        response = await fetch(file);
                         if (response && response.ok) {
                             splatURL = file;
                             break;
@@ -664,7 +656,7 @@
                     'No splat file found.\n\n' +
                     (useRemote
                         ? '→ Running in REMOTE mode but the CDN file failed to load.\n   Check your internet connection.\n\n→ Tip: Add ?local to the URL to force local file loading.'
-                        : '→ Running in LOCAL mode.\n   Make sure PLYcompressed.ply or Newsest.ply exists next to splat.html.')
+                        : '→ Running in LOCAL mode.\n   Make sure PLYcompressed.ply or Newest.ply exists next to splat.html.')
                 );
             }
 
@@ -779,7 +771,7 @@
                                     <i class="ph ph-warning text-3xl text-red-400"></i>
                                 </div>
                                 <h2 class="text-xl font-semibold tracking-tight text-red-400 mb-2">Failed to load the splat</h2>
-                                <div class="text-sm text-gray-300 mb-4 whitespace-pre-line">${(err && err.message) || 'Unknown error during download or GPU upload.'}</div>
+                                <div id="load-error-msg" class="text-sm text-gray-300 mb-4 whitespace-pre-line"></div>
 
                                 <div class="text-left text-xs bg-black/40 border border-white/10 rounded-xl p-4 mb-4">
                                     <div class="font-semibold text-white/80 mb-1">Common on mobile:</div>
@@ -794,6 +786,8 @@
                                 <button onclick="location.reload()" class="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm active:bg-white/20">Reload page</button>
                             </div>
                         `;
+                        const errEl = document.getElementById('load-error-msg');
+                        if (errEl) errEl.textContent = (err && err.message) || 'Unknown error during download or GPU upload.';
                     }
                     if (!isLoaded) isLoaded = true;
                 }, 800);
@@ -1067,26 +1061,26 @@
 
                 if (camera && !isInputLocked) {
                     const moveSpeed = 9 * (keys['shift'] ? 5.0 : 1);
-                    const forward   = new THREE.Vector3();
-                    const right     = new THREE.Vector3();
-                    const up        = new THREE.Vector3(0, 1, 0);
-                    camera.getWorldDirection(forward);
-                    right.crossVectors(forward, up).normalize();
-                    const move = new THREE.Vector3();
-                    if (keys['w']) move.add(forward);
-                    if (keys['s']) move.sub(forward);
-                    if (keys['a']) move.sub(right);
-                    if (keys['d']) move.add(right);
-                    if (keys['e']) move.add(up);
-                    if (keys['q']) move.sub(up);
-                    if (move.lengthSq() > 0) {
-                        move.normalize().multiplyScalar(moveSpeed * delta);
-                        camera.position.add(move);
+                    _vForward.set(0, 0, 0);
+                    _vRight.set(0, 0, 0);
+                    camera.getWorldDirection(_vForward);
+                    _vRight.crossVectors(_vForward, _vUp).normalize();
+                    _vMove.set(0, 0, 0);
+                    if (keys['w']) _vMove.add(_vForward);
+                    if (keys['s']) _vMove.sub(_vForward);
+                    if (keys['a']) _vMove.sub(_vRight);
+                    if (keys['d']) _vMove.add(_vRight);
+                    if (keys['e']) _vMove.add(_vUp);
+                    if (keys['q']) _vMove.sub(_vUp);
+                    if (_vMove.lengthSq() > 0) {
+                        _vMove.normalize().multiplyScalar(moveSpeed * delta);
+                        camera.position.add(_vMove);
                     }
 
                     if (isMobile && touchMoveVec && touchMoveVec.lengthSq() > 0 && !isInputLocked) {
                         const touchSpeed = 42;
-                        camera.position.add(touchMoveVec.clone().multiplyScalar(touchSpeed * delta));
+                        _vTemp.copy(touchMoveVec).multiplyScalar(touchSpeed * delta);
+                        camera.position.add(_vTemp);
                         touchMoveVec.multiplyScalar(0.82);
                         if (touchMoveVec.lengthSq() < 0.0001) touchMoveVec.set(0, 0, 0);
                     }
@@ -1098,9 +1092,9 @@
                     camera.position.lerpVectors(cameraTransition.fromPos, cameraTransition.toPos, t);
                     camera.quaternion.slerpQuaternions(cameraTransition.fromQuat, cameraTransition.toQuat, t);
                     if (tRaw >= 1) {
-                        const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
-                        yaw   = euler.y;
-                        pitch = euler.x;
+                        _eTemp.setFromQuaternion(camera.quaternion, 'YXZ');
+                        yaw   = _eTemp.y;
+                        pitch = _eTemp.x;
                         cameraTransition = null;
                         isInputLocked    = isTourActive;
                     }
@@ -1123,15 +1117,14 @@
                     }
                     if (targetDistance >= tourTotalLength) { seg = tourSegmentLengths.length - 1; localT = 1; }
                     camera.position.lerpVectors(tourPoints[seg], tourPoints[seg + 1], localT);
-                    camera.quaternion.copy(new THREE.Quaternion().slerpQuaternions(tourQuats[seg], tourQuats[seg + 1], localT));
+                    _qTemp.slerpQuaternions(tourQuats[seg], tourQuats[seg + 1], localT);
+                    camera.quaternion.copy(_qTemp);
                     if (t >= 1) endTour();
                 }
 
                 if (autoRotate && splatMesh && isLoaded) splatMesh.rotation.y += 0.0006;
                 if (renderer && scene && camera) renderer.render(scene, camera);
             }
-
-            renderer.setAnimationLoop(animate);
         }
 
         function frameSplat() {
@@ -1474,7 +1467,7 @@
                 item.addEventListener('click', () => {
                     if (typeof goToHighlight === 'function') goToHighlight(view.id);
                     // Close mobile panel cleanly (removes outside handler too)
-                    if (typeof closeMobileHighlightsPanel === 'function') closeMobileHighlightsPanel();
+                    closeMobileHighlightsPanel();
                 });
                 container.appendChild(item);
             });
@@ -1519,7 +1512,7 @@
                     highlightsCard.style.minWidth = '0';
                 }
 
-                if (list && list.children.length === 0 && typeof populateHighlightsList === 'function') {
+                if (list && list.children.length === 0) {
                     populateHighlightsList(list);
                 }
 
@@ -1613,7 +1606,7 @@
             claimKeyboardFor3D();
             showTourStopPill();
             // Hide mobile highlights panel cleanly if open
-            if (typeof closeMobileHighlightsPanel === 'function') closeMobileHighlightsPanel();
+            closeMobileHighlightsPanel();
             console.log('%c[SplatViewer] Classroom tour started', 'color:#68f983');
         }
 
@@ -1634,7 +1627,7 @@
                 pitch = euler.x;
             }
             hideTourStopPill();
-            if (typeof closeMobileHighlightsPanel === 'function') closeMobileHighlightsPanel();
+            closeMobileHighlightsPanel();
             console.log('[SplatViewer] Tour ended');
         }
 
@@ -1668,8 +1661,6 @@
             if (typeof splatMesh.maxSplats === 'number') splatMesh.maxSplats = count;
             claimKeyboardFor3D();
         }
-
-        let currentQualityLevel = 'low';
 
         function setQualityLevel(level) {
             if (!spark) return;
@@ -1916,7 +1907,7 @@
             initThreeJS();
             setupKeyboardShortcuts();
             restoreWarningState();
-            if (typeof renderHighlightsList === 'function') renderHighlightsList();
+            renderHighlightsList();
             await loadSplatWithProgress();
         }
 
@@ -1927,7 +1918,7 @@
                 overlay.innerHTML = `
                     <div class="max-w-md w-full text-center px-6">
                         <div class="text-red-400 mb-3 text-lg font-semibold">Failed to initialize viewer</div>
-                        <div class="text-sm text-gray-300 mb-4 whitespace-pre-line">${err.message || 'Unknown error'}</div>
+                        <div id="init-error-msg" class="text-sm text-gray-300 mb-4 whitespace-pre-line"></div>
                         <div class="text-xs text-gray-400 bg-black/40 border border-white/10 rounded-xl p-4 text-left">
                             Common fixes:<br>
                             • Use a local web server (not file://)<br>
@@ -1937,6 +1928,8 @@
                         <button onclick="location.reload()" class="mt-4 px-5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm">Reload</button>
                     </div>
                 `;
+                const errEl = document.getElementById('init-error-msg');
+                if (errEl) errEl.textContent = (err && err.message) || 'Unknown error';
             }
         });
 
