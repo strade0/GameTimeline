@@ -559,6 +559,10 @@
         let currentYawSource = 'alpha'; // 'alpha' or 'gamma' - shown in debug panel
         let lastYawDamping = 1.0;
 
+        // For alpha jump detection
+        let prevDeviceAlpha = null;
+        let lastAlphaJumpDetected = false;  // exposed to debug panel
+
         // === Gyro Recording for Debugging ===
         let gyroRecording = null;        // { startTime, samples: [] }
         let gyroRecordingTimer = null;   // setTimeout for 10s stop
@@ -1628,43 +1632,64 @@
             lastDeviceBeta = beta;
             lastDeviceGamma = event.gamma ?? lastDeviceGamma;
 
-            // === Much more robust yaw source selection ===
-            // Problem: On most Android phones, raw alpha (compass) becomes unreliable or flips
-            // once the phone is leveled or tilted upwards. This causes the exact symptoms you described:
-            // good when looking down, broken left/right when level or looking up, plus unwanted sideways drift while tilting up.
-            //
-            // Solution: Switch the source of horizontal (yaw) rotation depending on tilt angle.
+            // === Revised yaw source selection (based on your recording) ===
+            // Key changes:
+            // - Much higher threshold before switching away from alpha (only at very steep upward angles)
+            // - Much gentler damping (never go below ~40%)
+            // - Alpha jump rejection: if alpha suddenly jumps > ~28° in one frame, heavily suppress that contribution
 
             const absBeta = Math.abs(beta);
             let yawDelta;
 
-            if (absBeta < 35) {
-                // Phone is relatively flat / looking somewhat down — alpha is usually trustworthy
+            // Alpha jump detection
+            let alphaJump = false;
+            if (prevDeviceAlpha !== null) {
+                let rawDeltaAlpha = alpha - prevDeviceAlpha;
+                // Handle wrap-around
+                if (rawDeltaAlpha > 180) rawDeltaAlpha -= 360;
+                if (rawDeltaAlpha < -180) rawDeltaAlpha += 360;
+
+                if (Math.abs(rawDeltaAlpha) > 28) {
+                    alphaJump = true;
+                    lastAlphaJumpDetected = true;
+                } else {
+                    lastAlphaJumpDetected = false;
+                }
+            } else {
+                lastAlphaJumpDetected = false;
+            }
+            prevDeviceAlpha = alpha;
+
+            if (absBeta < 72 && !alphaJump) {
+                // Normal range or no big jump — trust alpha (most responsive)
                 if (currentYawSource !== 'alpha') {
                     console.log('%c[SplatViewer] Gyro yaw source switched to ALPHA', 'color:#68f983');
                 }
                 currentYawSource = 'alpha';
                 yawDelta = dAlpha;
             } else {
-                // Phone is leveled or looking up — alpha is flaky.
-                // Use gamma (device left/right tilt) as the horizontal rotation source instead.
-                // This is much more stable for "looking around" when the phone is not flat.
+                // Very steep upward tilt OR we just detected a big alpha jump
                 if (currentYawSource !== 'gamma') {
-                    console.log('%c[SplatViewer] Gyro yaw source switched to GAMMA (alpha unreliable when tilted up/level)', 'color:#f59e0b');
+                    console.log('%c[SplatViewer] Gyro yaw source switched to GAMMA (high tilt or alpha jump detected)', 'color:#f59e0b');
                 }
                 currentYawSource = 'gamma';
                 const dGamma = (lastDeviceGamma - gyroInitial.gamma) * DEG2RAD;
-                yawDelta = dGamma * -1.15;   // sign tuned for natural feel
+                yawDelta = dGamma * -1.15;
             }
 
-            // Still apply some damping on top when very steep to prevent any remaining jumps
-            if (absBeta > 75) {
-                yawDelta *= 0.1;
-            } else if (absBeta > 60) {
-                yawDelta *= Math.max(0.25, 1 - (absBeta - 60) / 20);
+            // Gentler damping curve — never kill responsiveness completely
+            let damping = 1.0;
+
+            if (absBeta > 82) {
+                damping = 0.40;           // steepest angles — still usable
+            } else if (absBeta > 72) {
+                damping = Math.max(0.40, 1 - (absBeta - 72) / 18);
+            } else if (alphaJump) {
+                damping = 0.15;           // temporary strong suppression on detected jump
             }
 
-            lastYawDamping = (absBeta > 75) ? 0.1 : (absBeta > 60 ? Math.max(0.25, 1 - (absBeta - 60) / 20) : 1.0);
+            yawDelta *= damping;
+            lastYawDamping = damping;
 
             // Mapping (tuned for natural feel)
             //   phone yaw right → camera yaw ↑ (view turns right)
@@ -1720,6 +1745,8 @@
 
             currentYawSource = 'alpha';
             lastYawDamping = 1.0;
+            lastAlphaJumpDetected = false;
+            prevDeviceAlpha = null;
 
             // Stop recording if it was running
             if (gyroRecordingTimer) {
@@ -1758,6 +1785,8 @@
 
                 if (gyroPausedByTouch) {
                     sourceLine = `Yaw source: <b>TOUCH OVERRIDE</b>`;
+                } else if (lastAlphaJumpDetected) {
+                    sourceLine += ` <span style="color:#f59e0b">[JUMP REJECTED]</span>`;
                 }
 
                 // Show useful delta info based on current source
@@ -1809,6 +1838,9 @@
                 startTime: Date.now(),
                 samples: []
             };
+
+            lastAlphaJumpDetected = false;
+            prevDeviceAlpha = null;
 
             console.log('%c[SplatViewer] Started 10-second gyro recording (will auto-download)', 'color:#f59e0b');
 
