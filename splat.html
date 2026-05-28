@@ -1466,7 +1466,7 @@
                 gyroHasReceivedData = true;
 
                 // Small log to help debugging on live GitHub version
-                console.log('%c[SplatViewer] Gyro: first valid sensor data received', 'color:#68f983');
+                console.log('%c[SplatViewer] Gyro: first valid sensor data received (baseline set)', 'color:#68f983');
 
                 // Make last event visible in the on-screen debug box
                 window.__lastGyroEvent = { alpha: Math.round(alpha), beta: Math.round(beta) };
@@ -1489,7 +1489,13 @@
             const MAX_PITCH = 1.50; // ~86° — keeps behavior consistent with highlight poses
             pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, pitch));
 
-            applyLookRotation();
+            // Directly apply rotation to camera (applyLookRotation is defined inside initThreeJS and not accessible here)
+            if (camera) {
+                const q = new THREE.Quaternion();
+                q.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+                camera.quaternion.copy(q);
+                console.log('%c[SplatViewer] Gyro: applied rotation → yaw=' + yaw.toFixed(3) + ' pitch=' + pitch.toFixed(3), 'color:#22c55e');
+            }
 
             // Update the on-screen debug box with live values
             window.__lastGyroEvent = { alpha: Math.round(alpha), beta: Math.round(beta) };
