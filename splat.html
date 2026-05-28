@@ -316,6 +316,16 @@
         </div>
     </div>
 
+    <!-- Reset to Default View (only visible while Gyro is active, centered with gap above mobile bar) -->
+    <button id="mobile-reset-default"
+            onclick="resetToDefaultView()"
+            class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] lg:hidden hidden
+                   floating-panel glass-card px-5 py-1.5 rounded-2xl text-sm flex items-center gap-2
+                   active:bg-white/10 border border-white/10 text-white/90">
+        <i class="ph ph-target text-base"></i>
+        <span>Reset to default view</span>
+    </button>
+
     <!-- Mobile Controls Bar -->
     <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] lg:hidden">
         <div class="floating-panel glass-card rounded-2xl px-2 py-2 flex items-center gap-1">
@@ -534,6 +544,13 @@
         let gyroInitial = null;           // { alpha, beta, yaw, pitch } captured on enable for relative control
         let gyroListenerAttached = false;
         let gyroHasReceivedData = false;  // used for better user feedback when sensor is silent
+
+        // Default starting camera pose (used on load + Reset on all devices)
+        const DEFAULT_CAMERA_POSE = {
+            position: [3.52, 7.299, -1.795],
+            yaw: 2.5017,
+            pitch: -0.1083
+        };
 
         // =====================================================
         // HIGHLIGHTS + ANIMATED CAMERA TRANSITIONS + TOUR
@@ -827,7 +844,8 @@
                         }
 
                         setTimeout(() => {
-                            try { frameSplat(); } catch (e) {}
+                            // Apply the official default camera pose so users see the intended view immediately after load
+                            try { resetToDefaultView(); } catch (e) {}
                         }, 280);
 
                         hideLoadingOverlay();
@@ -904,8 +922,19 @@
                 2000
             );
             camera.up.set(0, 1, 0);
-            camera.position.set(0, 18, 4);     // significantly higher
-            camera.lookAt(0, 4, 25);           // looking forward toward the horizon, not down
+
+            // Use the official default starting pose on all devices
+            camera.position.set(
+                DEFAULT_CAMERA_POSE.position[0],
+                DEFAULT_CAMERA_POSE.position[1],
+                DEFAULT_CAMERA_POSE.position[2]
+            );
+            yaw = DEFAULT_CAMERA_POSE.yaw;
+            pitch = DEFAULT_CAMERA_POSE.pitch;
+
+            const q = new THREE.Quaternion();
+            q.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+            camera.quaternion.copy(q);
 
             // Spark renderer — forced conservative quality (no user selector anymore)
             // Mobile → Potato (lowest)
@@ -1387,14 +1416,47 @@
         }
 
         function resetCamera() {
+            // Now uses the nice official default pose (requested by user)
+            resetToDefaultView();
+        }
+
+        /**
+         * Reset camera to the official default view pose (used on all devices).
+         * Also disables gyro for clean UX.
+         */
+        function resetToDefaultView() {
             if (!camera) return;
-            disableGyro();           // gyro would fight the reset animation
-            frameSplat();
+
+            disableGyro();
+
+            // Set exact requested default pose
+            camera.position.set(
+                DEFAULT_CAMERA_POSE.position[0],
+                DEFAULT_CAMERA_POSE.position[1],
+                DEFAULT_CAMERA_POSE.position[2]
+            );
+
+            // Apply yaw/pitch directly
+            yaw = DEFAULT_CAMERA_POSE.yaw;
+            pitch = DEFAULT_CAMERA_POSE.pitch;
+
+            // Apply to camera (direct, since applyLookRotation may be inner)
+            const q = new THREE.Quaternion();
+            q.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+            camera.quaternion.copy(q);
+
+            // Make sure auto-rotate is off
             autoRotate = false;
-            const btn = document.getElementById('auto-rotate-btn');
-            if (btn) btn.classList.remove('!bg-white/10', 'text-[#68f983]');
+            const autoBtn = document.getElementById('mobile-auto-rotate');
+            if (autoBtn) autoBtn.classList.remove('text-[#68f983]');
+
+            // Hide reset button (we just left gyro mode)
+            const resetBtn = document.getElementById('mobile-reset-default');
+            if (resetBtn) resetBtn.classList.add('hidden');
 
             claimKeyboardFor3D();
+
+            console.log('%c[SplatViewer] Reset to default view pose', 'color:#68f983');
         }
 
         function toggleAutoRotate() {
@@ -1479,12 +1541,11 @@
             const dAlpha = (alpha - gyroInitial.alpha) * DEG2RAD;
             const dBeta  = (beta  - gyroInitial.beta)  * DEG2RAD;
 
-            // Mapping (tuned for natural "hold phone like a camera" feel):
-            //   phone yaw right (alpha ↑) → camera yaw ↓ (view turns right)
-            //   phone tilt top away (beta ↑) → camera pitch ↓ (look up)
-            // Slight damping on pitch + clamp to avoid extreme flips
-            yaw   = gyroInitial.yaw   - dAlpha;
-            pitch = gyroInitial.pitch - (dBeta * 0.9);
+            // Mapping (reversed per user request so directions feel natural)
+            //   phone yaw right (alpha ↑) → camera yaw ↑ (view turns right)
+            //   phone tilt top away (beta ↑) → camera pitch ↑ (look up)
+            yaw   = gyroInitial.yaw   + dAlpha;
+            pitch = gyroInitial.pitch + (dBeta * 0.9);
 
             const MAX_PITCH = 1.50; // ~86° — keeps behavior consistent with highlight poses
             pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, pitch));
@@ -1524,6 +1585,10 @@
             // Clean up the on-screen live status panel
             if (gyroStatusInterval) { clearInterval(gyroStatusInterval); gyroStatusInterval = null; }
             if (gyroStatusBox) { gyroStatusBox.remove(); gyroStatusBox = null; }
+
+            // Hide the reset button when gyro is turned off
+            const resetBtn = document.getElementById('mobile-reset-default');
+            if (resetBtn) resetBtn.classList.add('hidden');
 
             console.log('[SplatViewer] Gyro mode disabled');
         }
@@ -1625,6 +1690,10 @@
             }
 
             if (gyroBtn) gyroBtn.classList.add('text-[#68f983]');
+
+            // Show the "Reset to default view" button only while gyro is active
+            const resetBtn = document.getElementById('mobile-reset-default');
+            if (resetBtn) resetBtn.classList.remove('hidden');
 
             if (hintEl) {
                 hintEl.textContent = 'Gyro active — tilt & rotate phone to look';
@@ -2415,6 +2484,7 @@
         // Expose control functions to the global scope so HTML onclick attributes work
         window.toggleAutoRotate = toggleAutoRotate;
         window.resetCamera = resetCamera;
+        window.resetToDefaultView = resetToDefaultView;   // official default pose (used by new button)
         window.toggleGyroMode = toggleGyroMode;   // mobile-only gyro look control
         // Diagnostic helpers (useful when testing on GitHub Pages)
         window.gyroDebug = {
@@ -2438,6 +2508,7 @@
         // Also keep the debug object
         window.SPLAT_DEBUG = { 
             resetCamera, 
+            resetToDefaultView,      // official default camera pose
             toggleAutoRotate, 
             toggleGyroMode,          // mobile-only — use phone gyro for camera rotation
             frameSplat, 
