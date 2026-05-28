@@ -322,7 +322,7 @@
             class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] lg:hidden hidden
                    px-5 py-2 rounded-2xl text-sm flex items-center gap-2
                    bg-[#1a1a1a] text-white/90 border border-white/15"
-            style="transition: none; transform: none; -webkit-tap-highlight-color: transparent;">
+            style="transition: none; -webkit-tap-highlight-color: transparent;">
         <i class="ph ph-target text-base"></i>
         <span>Reset to default view</span>
     </button>
@@ -1663,9 +1663,8 @@
 
             // Apply to the captured zero pose.
             // The sign on pitch is chosen so that natural phone tilting maps to intuitive up/down look.
-            // Flip the sign here if the feel feels inverted on your device after testing.
             yaw   = gyroZeroYaw   + relEuler.y;
-            pitch = gyroZeroPitch - relEuler.x;
+            pitch = gyroZeroPitch + relEuler.x;   // flipped for correct up/down direction on this model
 
             // Clamp pitch to avoid flipping over
             const MAX_PITCH = 1.45;
