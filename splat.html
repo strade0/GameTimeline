@@ -567,6 +567,11 @@
         let initialDeviceQuat = null;     // device orientation when gyro was enabled
         let gyroZeroYaw = 0;
         let gyroZeroPitch = 0;
+        let initialGammaRad = 0;          // captured at baseline; gamma is the main driver for left/right (yaw) in normal phone grip
+
+        // How strongly gamma (phone roll) contributes to yaw when held in normal portrait grip.
+        // Increase for stronger side-to-side response. Sign may need flipping on some devices.
+        const GYRO_YAW_FROM_GAMMA = 1.15;
 
         // Debug values from relative quaternion
         let lastRelYaw = 0;
@@ -1628,6 +1633,10 @@
                 const deviceEuler = new THREE.Euler(betaRad, alphaRad, -gammaRad, 'YXZ');
                 initialDeviceQuat = new THREE.Quaternion().setFromEuler(deviceEuler);
 
+                // Capture gamma baseline too — gamma is usually the dominant axis for left/right
+                // look when the phone is held in normal portrait position in front of you.
+                initialGammaRad = gammaRad;
+
                 // Also keep legacy baseline for touch re-baselining and reset
                 const g = event.gamma ?? 0;
                 lastDeviceGamma = g;
@@ -1662,8 +1671,10 @@
             lastRelPitch = relEuler.x;
 
             // Apply to the captured zero pose.
-            // The sign on pitch is chosen so that natural phone tilting maps to intuitive up/down look.
-            yaw   = gyroZeroYaw   + relEuler.y;
+            // Pitch is driven by beta (reliable). Yaw gets a strong contribution from gamma
+            // because when holding the phone normally in front of you (portrait), left/right
+            // head turns primarily change gamma, not alpha.
+            yaw   = gyroZeroYaw + relEuler.y + (gammaRad - initialGammaRad) * GYRO_YAW_FROM_GAMMA;
             pitch = gyroZeroPitch + relEuler.x;   // flipped for correct up/down direction on this model
 
             // Clamp pitch to avoid flipping over
@@ -1726,6 +1737,7 @@
             initialDeviceQuat = null;
             gyroZeroYaw = 0;
             gyroZeroPitch = 0;
+            initialGammaRad = 0;
 
             // Stop recording if it was running
             if (gyroRecordingTimer) {
