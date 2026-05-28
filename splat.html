@@ -1653,9 +1653,6 @@
             lastDeviceBeta = beta;
             lastDeviceGamma = event.gamma ?? lastDeviceGamma;
 
-            const MAX_PITCH = 1.45; // slightly tighter clamp to avoid over-rotation
-            pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, pitch));
-
             // Directly apply rotation to camera (applyLookRotation is defined inside initThreeJS and not accessible here)
             if (camera) {
                 const q = new THREE.Quaternion();
