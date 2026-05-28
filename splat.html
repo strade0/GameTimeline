@@ -66,6 +66,14 @@
             cursor: pointer !important;
         }
 
+        /* Raise the mobile bottom controls when the Stop Tour pill is visible */
+        #mobile-controls-wrapper {
+            transition: transform 200ms ease-out;
+        }
+        #mobile-controls-wrapper.tour-active {
+            transform: translate(-50%, -54px);
+        }
+
         .glass-card:hover {
             background: rgba(255, 255, 255, 0.1);
             transform: translateY(-2px);
@@ -211,7 +219,8 @@
     <!-- 3D Viewer Container -->
     <div id="viewer-container" class="fixed inset-0 pt-14">
         <div id="viewer-hints"
-             class="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none z-10 hidden md:block">
+             class="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none z-10 hidden lg:block"
+             style="display: none;">
             <div class="viewer-hint flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 border border-white/10">
                 <span>WASD to fly</span>
                 <span class="text-white/20">•</span>
@@ -275,19 +284,20 @@
     </button>
 
     <!-- Mobile Controls Bar -->
-    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] lg:hidden">
-        <div class="floating-panel glass-card rounded-2xl px-2 py-2 flex items-center gap-1">
+    <div id="mobile-controls-wrapper" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] lg:hidden">
+        <div id="mobile-controls-bar-inner" class="floating-panel glass-card rounded-2xl px-2 py-2 flex items-center gap-1">
             <button onclick="resetCamera()"
                     class="px-4 py-2 text-sm flex items-center gap-1.5 active:bg-white/10 rounded-xl">
                 <i class="ph ph-target"></i>
                 <span class="text-xs">Reset</span>
             </button>
             <div class="w-px h-5 bg-white/15"></div>
-            <button id="mobile-auto-rotate"
-                    onclick="toggleAutoRotate()"
-                    class="px-4 py-2 text-sm flex items-center gap-1.5 active:bg-white/10 rounded-xl">
-                <i class="ph ph-arrows-clockwise"></i>
-                <span class="text-xs">Auto</span>
+            <button id="mobile-highlights-btn"
+                    onclick="toggleMobileHighlightsPanel()"
+                    class="px-3 py-2 text-sm flex items-center gap-1.5 active:bg-white/10 rounded-xl"
+                    title="Highlights &amp; Tour">
+                <i class="ph ph-list-bullets"></i>
+                <span class="text-xs">Views</span>
             </button>
             <div class="w-px h-5 bg-white/15"></div>
             <button id="mobile-gyro"
@@ -298,17 +308,37 @@
                 <span class="text-xs">Gyro</span>
             </button>
             <div class="w-px h-5 bg-white/15"></div>
-            <button onclick="toggleFullscreen()"
-                    class="px-4 py-2 text-sm flex items-center gap-1.5 active:bg-white/10 rounded-xl">
-                <i class="ph ph-arrows-out"></i>
-            </button>
-            <div class="w-px h-5 bg-white/15"></div>
             <button onclick="showHelp()"
                     class="px-4 py-2 text-sm flex items-center gap-1.5 active:bg-white/10 rounded-xl">
                 <i class="ph ph-question"></i>
             </button>
         </div>
         <div id="mobile-controls-hint" class="text-center text-[10px] text-white/40 mt-1.5">Drag 1 finger to look • 2 fingers to move</div>
+    </div>
+
+    <!-- Mobile Highlights Panel (opened via Views button in bottom bar on mobile) -->
+    <div id="mobile-highlights-panel"
+         class="fixed bottom-28 left-1/2 -translate-x-1/2 z-[9998] lg:hidden hidden">
+        <div class="floating-panel glass-card rounded-3xl px-3 py-3 text-sm shadow-2xl border border-white/10 w-fit max-w-[86vw] min-w-[238px]">
+            <div class="panel-label px-1 mb-2">Highlights</div>
+
+            <div class="flex gap-2 items-stretch min-h-[155px]">
+                <!-- Left: highlights list -->
+                <div class="flex-1 min-w-0 pb-1">
+                    <div id="mobile-highlights-list" class="space-y-px"></div>
+                </div>
+                <!-- Right: Play tour button - sized to the blue area you drew (much taller + wider) -->
+                <button onclick="closeMobileHighlightsPanel(); startClassroomTour();"
+                        class="shrink-0 flex flex-col items-center justify-between py-4 px-3 rounded-2xl bg-white/5 hover:bg-white/15 active:bg-white/20 text-[10px] leading-none border border-white/10 w-[88px] h-full text-center transition-colors"
+                        title="Play classroom tour">
+                    <i class="ph ph-play text-[#68f983] text-[34px]"></i>
+                    <div class="flex flex-col items-center leading-none -mt-0.5">
+                        <span class="font-semibold text-white/95 text-xs tracking-wide">Play</span>
+                        <span class="text-white/75 text-[10px]">tour</span>
+                    </div>
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Large Asset Warning Banner -->
@@ -360,10 +390,32 @@
                 </div>
             </div>
 
-            <div class="mt-6 text-center">
-                <p class="text-xs text-gray-500 max-w-[260px] mx-auto">
-                    High-detail 3DGS with forced conservative quality (Potato on mobile, Low on desktop).
-                </p>
+            <div class="mt-5">
+                <div class="mx-auto max-w-[310px] rounded-2xl border border-[#68f983]/40 bg-[#68f983]/10 px-4 py-3 text-sm">
+                    <div class="text-[#68f983] text-xs font-semibold tracking-wider mb-1.5 text-center">BOTTOM BAR BUTTONS</div>
+                    <div class="text-white/95 text-[13px] leading-tight space-y-1">
+                        <div class="flex items-center">
+                            <span class="font-semibold w-[52px] shrink-0">Reset</span>
+                            <span class="flex-1 border-b border-dashed border-white/30 mx-1"></span>
+                            <span class="text-white/70 whitespace-nowrap">Return to starting view</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="font-semibold w-[52px] shrink-0">Gyro</span>
+                            <span class="flex-1 border-b border-dashed border-white/30 mx-1"></span>
+                            <span class="text-white/70 whitespace-nowrap">Use phone’s real rotation</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="font-semibold w-[52px] shrink-0">Views</span>
+                            <span class="flex-1 border-b border-dashed border-white/30 mx-1"></span>
+                            <span class="text-white/70 whitespace-nowrap">Highlights + start tour</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="font-semibold w-[52px] shrink-0">?</span>
+                            <span class="flex-1 border-b border-dashed border-white/30 mx-1"></span>
+                            <span class="text-white/70 whitespace-nowrap">Full instructions & tips</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -404,6 +456,11 @@
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
                          ('ontouchstart' in window) ||
                          (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
+
+        // Completely remove the desktop WASD / movement hint popup on mobile — not needed
+        if (isMobile && viewerHints && viewerHints.parentNode) {
+            viewerHints.parentNode.removeChild(viewerHints);
+        }
 
         const isLocalEnvironment =
             window.location.hostname === 'localhost' ||
@@ -514,6 +571,9 @@
         let tourStartTime         = 0;
         let tourDuration          = 60000;
 
+        // Mobile highlights panel outside-click handler (for clean toggle)
+        let currentMobileHighlightsOutsideHandler = null;
+
         // Load progress
         let loadStartTime       = 0;
         let lastProgressUpdate  = 0;
@@ -542,8 +602,11 @@
         function hideLoadingOverlay() {
             loadingOverlay.classList.add('loading-hidden');
             setTimeout(() => {
-                if (viewerHints) viewerHints.style.display = 'block';
-                setTimeout(() => { if (viewerHints) viewerHints.style.opacity = '0'; }, 4200);
+                // Only show the desktop movement hint on non-mobile
+                if (viewerHints && !isMobile) {
+                    viewerHints.style.display = 'block';
+                    setTimeout(() => { if (viewerHints) viewerHints.style.opacity = '0'; }, 4200);
+                }
             }, 800);
         }
 
@@ -968,7 +1031,7 @@
             lastFpsUpdate = (typeof performance !== 'undefined' ? performance.now() : Date.now());
             renderer.setAnimationLoop(animate);
 
-            setTimeout(() => { if (viewerHints && !isLoaded) viewerHints.style.opacity = '0.6'; }, 6500);
+            setTimeout(() => { if (viewerHints && !isMobile && !isLoaded) viewerHints.style.opacity = '0.6'; }, 6500);
 
             autoRotate = false;
             const initialAutoBtn = document.getElementById('auto-rotate-btn');
@@ -1099,6 +1162,7 @@
 
         function resetToDefaultView() {
             if (!camera) return;
+            if (isTourActive) endTour();
             const wasGyroActive = gyroMode;
 
             camera.position.set(DEFAULT_CAMERA_POSE.position[0], DEFAULT_CAMERA_POSE.position[1], DEFAULT_CAMERA_POSE.position[2]);
@@ -1306,6 +1370,7 @@
                 return;
             }
 
+            if (isTourActive) endTour();
             gyroMode            = true;
             gyroInitial         = null;
             gyroHasReceivedData = false;
@@ -1399,22 +1464,93 @@
             }
         }
 
-        function renderHighlightsList() {
-            const container = document.getElementById('highlights-list');
+        function populateHighlightsList(container) {
             if (!container) return;
             container.innerHTML = '';
+            HIGHLIGHT_VIEWS.forEach((view) => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/15 active:bg-white/10 cursor-pointer text-sm transition-colors';
+                item.innerHTML = `<i class="ph ph-map-pin text-[#68f983] text-base shrink-0"></i><span class="truncate">${view.name}</span>`;
+                item.addEventListener('click', () => {
+                    if (typeof goToHighlight === 'function') goToHighlight(view.id);
+                    // Close mobile panel cleanly (removes outside handler too)
+                    if (typeof closeMobileHighlightsPanel === 'function') closeMobileHighlightsPanel();
+                });
+                container.appendChild(item);
+            });
+        }
+
+        function renderHighlightsList() {
+            const container = document.getElementById('highlights-list');
+            if (container) populateHighlightsList(container);
             const header = document.getElementById('highlights-header');
             if (header && !header.dataset.listenerAttached) {
                 header.addEventListener('click', toggleHighlights);
                 header.dataset.listenerAttached = 'true';
             }
-            HIGHLIGHT_VIEWS.forEach((view) => {
-                const item = document.createElement('div');
-                item.className = 'flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-white/15 active:bg-white/10 cursor-pointer text-sm transition-colors';
-                item.innerHTML = `<i class="ph ph-map-pin text-[#68f983] text-base shrink-0"></i><span class="truncate">${view.name}</span>`;
-                item.addEventListener('click', () => { if (typeof goToHighlight === 'function') goToHighlight(view.id); });
-                container.appendChild(item);
-            });
+        }
+
+        function closeMobileHighlightsPanel() {
+            const panel = document.getElementById('mobile-highlights-panel');
+            if (!panel) return;
+            panel.classList.add('hidden');
+            if (currentMobileHighlightsOutsideHandler) {
+                document.removeEventListener('click', currentMobileHighlightsOutsideHandler, true);
+                currentMobileHighlightsOutsideHandler = null;
+            }
+        }
+
+        function toggleMobileHighlightsPanel() {
+            const panel = document.getElementById('mobile-highlights-panel');
+            if (!panel) return;
+            const list = document.getElementById('mobile-highlights-list');
+
+            if (panel.classList.contains('hidden')) {
+                // Opening: show panel
+                panel.classList.remove('hidden');
+
+                // Make the highlights panel exactly the same width as the bottom controls bar
+                const controlsBar = document.getElementById('mobile-controls-bar-inner');
+                const highlightsCard = panel.querySelector('.floating-panel.glass-card');
+                if (controlsBar && highlightsCard) {
+                    const barWidth = controlsBar.offsetWidth;
+                    highlightsCard.style.width = barWidth + 'px';
+                    highlightsCard.style.maxWidth = 'none';
+                    highlightsCard.style.minWidth = '0';
+                }
+
+                if (list && list.children.length === 0 && typeof populateHighlightsList === 'function') {
+                    populateHighlightsList(list);
+                }
+
+                // Remove any stale outside handler
+                if (currentMobileHighlightsOutsideHandler) {
+                    document.removeEventListener('click', currentMobileHighlightsOutsideHandler, true);
+                    currentMobileHighlightsOutsideHandler = null;
+                }
+
+                // Add fresh outside click handler to close (capture phase)
+                setTimeout(() => {
+                    const handler = function (ev) {
+                        // Ignore clicks on the Views button itself — it will handle toggling
+                        const viewsBtn = document.getElementById('mobile-highlights-btn');
+                        if (viewsBtn && viewsBtn.contains(ev.target)) {
+                            return;
+                        }
+                        if (!panel || panel.classList.contains('hidden') || panel.contains(ev.target)) {
+                            document.removeEventListener('click', handler, true);
+                            currentMobileHighlightsOutsideHandler = null;
+                            return;
+                        }
+                        closeMobileHighlightsPanel();
+                    };
+                    currentMobileHighlightsOutsideHandler = handler;
+                    document.addEventListener('click', handler, true);
+                }, 10);
+            } else {
+                // Clicking the Views button again while open → close it
+                closeMobileHighlightsPanel();
+            }
         }
 
         // --- Camera transition easing ---
@@ -1430,7 +1566,9 @@
         function animateCameraTo(targetPos, targetYaw, targetPitch, durationMs = 3500) {
             if (!camera) return;
             disableGyro();
-            if (isTourActive) { isTourActive = false; tourCurve = null; tourQuats = null; }
+            if (isTourActive) {
+                endTour(); // fully clean tour state + hide the Stop pill
+            }
             const fromPos  = camera.position.clone();
             const fromQuat = camera.quaternion.clone();
             const toPos    = (targetPos instanceof THREE.Vector3) ? targetPos.clone() : new THREE.Vector3(targetPos[0], targetPos[1], targetPos[2]);
@@ -1474,6 +1612,8 @@
             tourStartTime   = (typeof performance !== 'undefined' ? performance.now() : Date.now());
             claimKeyboardFor3D();
             showTourStopPill();
+            // Hide mobile highlights panel cleanly if open
+            if (typeof closeMobileHighlightsPanel === 'function') closeMobileHighlightsPanel();
             console.log('%c[SplatViewer] Classroom tour started', 'color:#68f983');
         }
 
@@ -1494,6 +1634,7 @@
                 pitch = euler.x;
             }
             hideTourStopPill();
+            if (typeof closeMobileHighlightsPanel === 'function') closeMobileHighlightsPanel();
             console.log('[SplatViewer] Tour ended');
         }
 
@@ -1507,11 +1648,19 @@
             tourStopPill.innerHTML = `<i class="ph ph-stop text-[#68f983]"></i><span class="font-medium">Stop tour</span>`;
             tourStopPill.onclick   = () => endTour();
             document.body.appendChild(tourStopPill);
+
+            // Raise the mobile controls bar so it doesn't overlap the Stop Tour pill
+            const controlsWrapper = document.getElementById('mobile-controls-wrapper');
+            if (controlsWrapper) controlsWrapper.classList.add('tour-active');
         }
 
         function hideTourStopPill() {
             if (tourStopPill && tourStopPill.parentNode) tourStopPill.parentNode.removeChild(tourStopPill);
             tourStopPill = null;
+
+            // Return the mobile controls bar to its original position
+            const controlsWrapper = document.getElementById('mobile-controls-wrapper');
+            if (controlsWrapper) controlsWrapper.classList.remove('tour-active');
         }
 
         function setSplatQuality(count) {
@@ -1683,6 +1832,7 @@
         }
 
         function showControlsHint() {
+            if (isMobile) return; // Remove "Press I for Instructions" hint on mobile
             if (document.getElementById('splat-intro-modal')) return;
             const hint = document.createElement('div');
             hint.id        = 'controls-hint';
@@ -1812,12 +1962,14 @@
         window.animateCameraTo     = animateCameraTo;
         window.toggleHighlights    = toggleHighlights;
         window.renderHighlightsList = renderHighlightsList;
+        window.toggleMobileHighlightsPanel = toggleMobileHighlightsPanel;
+        window.closeMobileHighlightsPanel = closeMobileHighlightsPanel;
 
         window.SPLAT_DEBUG = {
             resetCamera, resetToDefaultView, toggleAutoRotate, toggleGyroMode,
             frameSplat, setSplatQuality, setQualityLevel, captureCameraPose,
             goToHighlight, startClassroomTour, endTour, animateCameraTo,
-            toggleHighlights, renderHighlightsList,
+            toggleHighlights, renderHighlightsList, toggleMobileHighlightsPanel, closeMobileHighlightsPanel,
             isMobile, isLocalMode: !useRemote,
             get gyroMode()            { return gyroMode; },
             get gyroHasReceivedData() { return gyroHasReceivedData; },
