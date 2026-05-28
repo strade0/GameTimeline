@@ -320,8 +320,9 @@
     <button id="mobile-reset-default"
             onclick="resetToDefaultView()"
             class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] lg:hidden hidden
-                   floating-panel glass-card px-5 py-1.5 rounded-2xl text-sm flex items-center gap-2
-                   active:bg-white/10 border border-white/10 text-white/90">
+                   px-5 py-2 rounded-2xl text-sm flex items-center gap-2
+                   bg-[#1a1a1a] text-white/90 border border-white/15"
+            style="transition: none; transform: none; -webkit-tap-highlight-color: transparent;">
         <i class="ph ph-target text-base"></i>
         <span>Reset to default view</span>
     </button>
@@ -548,6 +549,10 @@
         // Last raw device orientation values (used for re-baselining after touch look while gyro is on)
         let lastDeviceAlpha = 0;
         let lastDeviceBeta = 0;
+
+        // When the user is actively dragging with 1 finger while gyro is on,
+        // we pause gyro updates so touch has full control. Re-baseline on finger lift.
+        let gyroPausedByTouch = false;
 
         // Default starting camera pose (used on load + Reset on all devices)
         const DEFAULT_CAMERA_POSE = {
@@ -1083,7 +1088,10 @@
                     activeTouchCount = e.touches.length;
 
                     if (e.touches.length === 1) {
-                        // 1 finger = look. Now allowed even while gyro is active (for fine tuning)
+                        // 1 finger = look. Allowed even while gyro is active for fine tuning.
+                        if (gyroMode) {
+                            gyroPausedByTouch = true;   // pause gyro so touch has full uninterrupted control
+                        }
                         touchLookActive = true;
                         lastTouchX = e.touches[0].clientX;
                         lastTouchY = e.touches[0].clientY;
@@ -1166,17 +1174,20 @@
                         touchMoveVec.set(0, 0, 0);
                         lastPinchDistance = 0;
 
-                        // If we were using gyro + just finished a 1-finger look drag,
-                        // re-baseline gyro so the phone's current physical orientation
-                        // now corresponds to the view the user precisely adjusted to.
-                        if (gyroMode && wasDoingLook) {
-                            gyroInitial = {
-                                alpha: lastDeviceAlpha,
-                                beta: lastDeviceBeta,
-                                yaw: yaw,
-                                pitch: pitch
-                            };
-                            console.log('%c[SplatViewer] Gyro re-baselined after touch look adjustment', 'color:#68f983');
+                        if (gyroPausedByTouch) {
+                            gyroPausedByTouch = false;
+
+                            // Re-baseline gyro to wherever the user dragged the view.
+                            // This makes the phone's current tilt/rotation correspond to the final camera angle.
+                            if (gyroMode) {
+                                gyroInitial = {
+                                    alpha: lastDeviceAlpha,
+                                    beta: lastDeviceBeta,
+                                    yaw: yaw,
+                                    pitch: pitch
+                                };
+                                console.log('%c[SplatViewer] Gyro re-baselined after touch look (drag completed)', 'color:#68f983');
+                            }
                         }
                     } else if (e.touches.length === 1) {
                         // Dropped from 2 fingers to 1 → switch to look
@@ -1188,20 +1199,21 @@
                 });
 
                 canvas.addEventListener('touchcancel', () => {
-                    const wasDoingLook = touchLookActive;
+                    if (gyroPausedByTouch) {
+                        gyroPausedByTouch = false;
+
+                        if (gyroMode) {
+                            gyroInitial = {
+                                alpha: lastDeviceAlpha,
+                                beta: lastDeviceBeta,
+                                yaw: yaw,
+                                pitch: pitch
+                            };
+                        }
+                    }
                     touchLookActive = false;
                     touchMoveVec.set(0, 0, 0);
                     lastPinchDistance = 0;
-
-                    // Same re-baseline logic as touchend for gyro + touch users
-                    if (gyroMode && wasDoingLook) {
-                        gyroInitial = {
-                            alpha: lastDeviceAlpha,
-                            beta: lastDeviceBeta,
-                            yaw: yaw,
-                            pitch: pitch
-                        };
-                    }
                 });
             }
 
@@ -1558,6 +1570,7 @@
 
         function onDeviceOrientation(event) {
             if (!gyroMode || !camera || isInputLocked) return;
+            if (gyroPausedByTouch) return;  // user is currently fine-tuning with touch drag — let them control fully
 
             // More robust check — some Android devices send undefined or NaN on first events
             const alpha = event.alpha;
@@ -1598,14 +1611,18 @@
             lastDeviceAlpha = alpha;
             lastDeviceBeta = beta;
 
-            // === Main fix for 360 spin when tilting phone up/down ===
-            // When the phone is tilted steeply (high |beta|), alpha tends to flip wildly.
-            // We heavily damp the yaw contribution from alpha in those cases.
+            // === Strong protection against 360 spins when tilting phone upwards ===
+            // On many Android devices, alpha flips ~180° when beta crosses certain vertical thresholds.
+            // We aggressively suppress yaw changes when the phone is pointed steeply up or down.
             let yawDamping = 1.0;
             const absBeta = Math.abs(beta);
-            if (absBeta > 55) {
-                // Gradually reduce yaw influence as the phone points more up or down
-                yawDamping = Math.max(0.08, 1 - (absBeta - 55) / 70);
+
+            if (absBeta > 70) {
+                // Very steep tilt (phone almost vertical or past it) — almost completely ignore alpha
+                yawDamping = 0.02;
+            } else if (absBeta > 50) {
+                // Moderately steep — strong damping
+                yawDamping = Math.max(0.05, 1 - (absBeta - 50) / 25);
             }
 
             // Mapping (tuned for natural feel after user feedback)
@@ -1679,7 +1696,7 @@
                 gyroStatusBox.innerHTML = `
                     gyroMode: <b>${gyroMode}</b> &nbsp;|&nbsp; data: <b>${gyroHasReceivedData}</b><br>
                     last α/β: ${last.alpha ?? '-'} / ${last.beta ?? '-'}<br>
-                    <span style="opacity:0.7">Drag 1 finger to fine-tune</span>
+                    <span style="opacity:0.7">${gyroPausedByTouch ? 'Touch adjusting...' : 'Drag 1 finger to fine-tune'}</span>
                 `;
             }
 
