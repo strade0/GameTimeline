@@ -860,9 +860,10 @@
                             // Re-baseline gyro so the phone's current physical orientation
                             // maps to wherever the touch drag left the camera
                             if (gyroMode) {
+                                const cleanCamQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
                                 gyroInitial = {
                                     deviceQ: deviceOrientationToWorldQuat(lastDeviceAlpha, lastDeviceBeta, lastDeviceGamma),
-                                    cameraQ: camera.quaternion.clone()
+                                    cameraQ: cleanCamQ
                                 };
                                 console.log('%c[SplatViewer] Gyro re-baselined after touch look (drag completed)', 'color:#68f983');
                             }
@@ -879,9 +880,10 @@
                     if (gyroPausedByTouch) {
                         gyroPausedByTouch = false;
                         if (gyroMode) {
+                            const cleanCamQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
                             gyroInitial = {
                                 deviceQ: deviceOrientationToWorldQuat(lastDeviceAlpha, lastDeviceBeta, lastDeviceGamma),
-                                cameraQ: camera.quaternion.clone()
+                                cameraQ: cleanCamQ
                             };
                         }
                     }
@@ -1062,9 +1064,10 @@
 
             if (wasGyroActive) {
                 // Keep gyro running — re-baseline to the new pose
+                const cleanCamQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
                 gyroInitial = {
                     deviceQ: deviceOrientationToWorldQuat(lastDeviceAlpha, lastDeviceBeta, lastDeviceGamma),
-                    cameraQ: camera.quaternion.clone()
+                    cameraQ: cleanCamQ
                 };
                 console.log('%c[SplatViewer] Gyro re-baselined after reset (gyro stayed active)', 'color:#68f983');
             } else {
@@ -1107,6 +1110,8 @@
 
         /**
          * Converts raw W3C DeviceOrientation angles to a Three.js world quaternion.
+         * Roll (gamma / tilt) is deliberately forced to 0 so that phone roll never
+         * affects the camera view — only yaw (alpha) and pitch (beta) drive looking.
          * Handles screen rotation (portrait / landscape) automatically.
          */
         function deviceOrientationToWorldQuat(alpha, beta, _gamma) {
@@ -1146,26 +1151,33 @@
 
             if (!gyroInitial) {
                 // First valid reading — capture baseline, apply on next frame (no jump)
+                // Store a guaranteed clean (roll=0) camera orientation for the baseline
+                const cleanCamQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
                 gyroInitial = {
                     deviceQ: currentDeviceQ.clone(),
-                    cameraQ: camera.quaternion.clone()
+                    cameraQ: cleanCamQ
                 };
                 gyroHasReceivedData = true;
                 console.log('%c[SplatViewer] Gyro: baseline captured', 'color:#68f983');
                 return;
             }
 
-            // Relative rotation = how much the device has moved since baseline
+            // Relative rotation = how much the device has moved since baseline.
+            // Because deviceOrientationToWorldQuat forces roll=0, this delta only encodes yaw/pitch changes.
             const deltaQ = gyroInitial.deviceQ.clone().invert().multiply(currentDeviceQ);
 
-            // Apply delta to the camera orientation captured at baseline
+            // Compute the desired orientation from the phone movement
             const newQ = gyroInitial.cameraQ.clone().multiply(deltaQ);
-            camera.quaternion.copy(newQ);
 
-            // Keep yaw/pitch in sync so mouse/touch look continues correctly after gyro is disabled
+            // Extract the yaw/pitch the movement implies
             const euler = new THREE.Euler().setFromQuaternion(newQ, 'YXZ');
             yaw   = euler.y;
             pitch = euler.x;
+
+            // ALWAYS set the camera using explicit zero roll. This is the only way to guarantee
+            // that phone tilt/roll never affects the view, and prevents any weird accumulated rotation.
+            // This matches exactly how mouse drag, touch look, and reset build the camera orientation.
+            camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
         }
 
         function disableGyro() {
