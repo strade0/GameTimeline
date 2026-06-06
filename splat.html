@@ -9,15 +9,12 @@
     <link rel="icon" type="image/png" href="favicon.png">
     <title>Game Dev Tracker • Gaussian Splat</title>
 
-    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Load Inter font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Load Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
     <style>
@@ -182,7 +179,6 @@
 </head>
 <body class="selection:bg-green-500 selection:text-black">
 
-    <!-- Top Navigation Bar -->
     <div class="fixed top-0 left-0 right-0 z-40 border-b border-white/10 bg-black/60 backdrop-blur-xl">
         <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
             <div class="flex items-center gap-4">
@@ -207,7 +203,6 @@
         </div>
     </div>
 
-    <!-- 3D Viewer Container -->
     <div id="viewer-container" class="fixed inset-0 pt-14">
         <div id="viewer-hints"
              class="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none z-10 hidden lg:block"
@@ -222,14 +217,12 @@
         </div>
     </div>
 
-    <!-- FPS counter -->
     <div id="fps-counter"
          class="fixed top-4 right-4 z-50 px-2.5 py-1 text-[10px] font-mono tabular-nums rounded-md bg-black/60 border border-white/10 text-[#68f983] select-none"
          title="Rendering capped at 60 FPS to reduce GPU usage">
         -- FPS
     </div>
 
-    <!-- Left Info Panel -->
     <div id="left-panels" class="fixed top-20 left-6 z-[9998] max-w-[260px] hidden lg:block flex flex-col gap-4">
         <div class="floating-panel glass-card rounded-2xl p-5 text-sm">
             <div class="panel-label mb-3">Current Asset</div>
@@ -263,7 +256,6 @@
         </div>
     </div>
 
-    <!-- Reset to Default View (only visible while Gyro is active) -->
     <button id="mobile-reset-default"
             onclick="resetToDefaultView()"
             class="fixed bottom-28 left-1/2 -translate-x-1/2 z-[10000] lg:hidden hidden
@@ -274,7 +266,6 @@
         <span>Reset to default view</span>
     </button>
 
-    <!-- Mobile Controls Bar -->
     <div id="mobile-controls-wrapper" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] lg:hidden">
         <div id="mobile-controls-bar-inner" class="floating-panel glass-card rounded-2xl px-2 py-2 flex items-center gap-1">
             <button onclick="resetCamera()"
@@ -307,18 +298,15 @@
         <div id="mobile-controls-hint" class="text-center text-[10px] text-white/40 mt-1.5">Drag 1 finger to look • 2 fingers to move</div>
     </div>
 
-    <!-- Mobile Highlights Panel (opened via Views button in bottom bar on mobile) -->
     <div id="mobile-highlights-panel"
          class="fixed bottom-28 left-1/2 -translate-x-1/2 z-[9998] lg:hidden hidden">
         <div class="floating-panel glass-card rounded-3xl px-3 py-3 text-sm shadow-2xl border border-white/10 w-fit max-w-[86vw] min-w-[238px]">
             <div class="panel-label px-1 mb-2">Highlights</div>
 
             <div class="flex gap-2 items-stretch min-h-[155px]">
-                <!-- Left: highlights list -->
                 <div class="flex-1 min-w-0 pb-1">
                     <div id="mobile-highlights-list" class="space-y-px"></div>
                 </div>
-                <!-- Right: Play tour button - sized to the blue area you drew (much taller + wider) -->
                 <button onclick="closeMobileHighlightsPanel(); startClassroomTour();"
                         class="shrink-0 flex flex-col items-center justify-between py-4 px-3 rounded-2xl bg-white/5 hover:bg-white/15 active:bg-white/20 text-[10px] leading-none border border-white/10 w-[88px] h-full text-center transition-colors"
                         title="Play classroom tour">
@@ -332,7 +320,6 @@
         </div>
     </div>
 
-    <!-- Large Asset Warning Banner -->
     <div id="size-warning"
          class="fixed bottom-6 left-6 right-6 lg:left-auto lg:right-6 lg:bottom-6 lg:w-80 z-40 floating-panel glass-card rounded-2xl p-4 text-sm border border-amber-500/30">
         <div class="flex gap-3">
@@ -351,7 +338,6 @@
         </div>
     </div>
 
-    <!-- LOADING OVERLAY -->
     <div id="loading-overlay"
          class="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex items-center justify-center p-6">
         <div class="max-w-md w-full">
@@ -411,7 +397,6 @@
         </div>
     </div>
 
-    <!-- Import Map + Main Viewer Script -->
     <script type="importmap">
     {
         "imports": {
@@ -437,9 +422,8 @@
         const sizeWarning     = document.getElementById('size-warning');
 
         // Viewer state
-        let renderer, scene, camera, controls, spark;
+        let renderer, scene, camera, spark;
         let splatMesh = null;
-        let autoRotate = false;
         let isLoaded = false;
         let clock = new THREE.Clock();
         let currentQualityLevel = 'low';
@@ -535,7 +519,7 @@
             pitch: -0.1083
         };
 
-        // Highlights (click = 3.5s Bézier transition)
+        // Highlights configurations
         const HIGHLIGHT_VIEWS = [
             { id: 'teachers-desk',  name: "Teacher's desk",  position: [-5.413, 6.302, 10.567],  yaw: -1.8213, pitch: -0.2359 },
             { id: 'desk-piece',     name: 'Desk Piece',       position: [-2.035, 4.627, -0.602],   yaw: -1.6321, pitch: -0.2271 },
@@ -543,7 +527,7 @@
             { id: 'whole-room',     name: 'Whole room',       position: [24.3,   9.473, -2.955],   yaw:  1.6348, pitch: -0.2316 }
         ];
 
-        // Tour keyframes (separate from highlights)
+        // Tour keyframes configuration
         const TOUR_PATH_KEYFRAMES = [
             { position: [-24.518, 11.074,  1.526],  yaw: -1.2758, pitch: -0.2579 },
             { position: [ -8.334,  6.309, -4.413],  yaw: -1.4342, pitch: -0.1743 },
@@ -562,13 +546,39 @@
             { position: [  6.802, 10.577,-22.327],  yaw:  2.9504, pitch: -0.2249 }
         ];
 
+        // Precomputed spatial structures to completely bypass GC tracking overhead
+        let cachedTourPoints = [];
+        let cachedTourQuats = [];
+        let cachedTourSegmentLengths = [];
+        let cachedTourCumulativeLengths = [];
+        let cachedTourTotalLength = 0;
+
+        function precomputeSpatialMetrics() {
+            cachedTourPoints = TOUR_PATH_KEYFRAMES.map(kf => new THREE.Vector3(kf.position[0], kf.position[1], kf.position[2]));
+            cachedTourQuats  = TOUR_PATH_KEYFRAMES.map(kf => new THREE.Quaternion().setFromEuler(new THREE.Euler(kf.pitch, kf.yaw, 0, 'YXZ')));
+            
+	    cachedTourCumulativeLengths = [0];
+            let total = 0;
+            for (let i = 0; i < cachedTourPoints.length - 1; i++) {
+                const dist = cachedTourPoints[i].distanceTo(cachedTourPoints[i + 1]);
+                cachedTourSegmentLengths.push(dist);
+                total += dist;
+                cachedTourCumulativeLengths.push(total);
+            }
+            cachedTourTotalLength = total;
+
+            HIGHLIGHT_VIEWS.forEach(view => {
+                view._vec = new THREE.Vector3(view.position[0], view.position[1], view.position[2]);
+                view._quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(view.pitch, view.yaw, 0, 'YXZ'));
+            });
+        }
+
         // Animated camera transition state
         let isTourActive          = false;
         let cameraTransition      = null;
         let isInputLocked         = false;
-        let tourCurve             = null;
-        let tourQuats             = null;
         let tourPoints            = null;
+        let tourQuats             = null;
         let tourSegmentLengths    = null;
         let tourCumulativeLengths = null;
         let tourTotalLength       = 0;
@@ -832,7 +842,6 @@
             currentQualityLevel = isMobile ? 'potato' : 'low';
             console.log(`%c[SplatViewer] Quality forced to ${qualityPreset.name}`, 'color:#68f983');
 
-            controls = null;
             scene.fog = new THREE.Fog(0x0a0a0a, 8, 22);
 
             const canvas = renderer.domElement;
@@ -967,7 +976,6 @@
                         if (gyroPausedByTouch) {
                             gyroPausedByTouch = false;
                             // Re-baseline gyro so the phone's current physical orientation
-                            // maps to wherever the touch drag left the camera
                             if (gyroMode) {
                                 gyroInitial = {
                                     deviceQ: deviceOrientationToWorldQuat(lastDeviceAlpha, lastDeviceBeta, lastDeviceGamma),
@@ -1002,7 +1010,6 @@
 
             window.addEventListener('orientationchange', () => {
                 if (gyroMode && gyroInitial) {
-                    // Screen rotated — force a fresh baseline on next sensor event
                     gyroInitial = null;
                     gyroHasReceivedData = false;
                 }
@@ -1027,10 +1034,6 @@
 
             setTimeout(() => { if (viewerHints && !isMobile && !isLoaded) viewerHints.style.opacity = '0.6'; }, 6500);
 
-            autoRotate = false;
-            const initialAutoBtn = document.getElementById('auto-rotate-btn');
-            if (initialAutoBtn) initialAutoBtn.classList.remove('!bg-white/10', 'text-[#68f983]');
-
             console.log('[SplatViewer] Mobile:', isMobile ? 'yes (Potato forced)' : 'no (Low forced)');
         }
 
@@ -1044,10 +1047,11 @@
         }
 
         function animate(timestamp = 0) {
-            const delta = clock.getDelta();
-
             if (timestamp - lastFrameTime >= frameInterval) {
-                lastFrameTime = timestamp;
+                // Precise timing anchor correction to stop high refresh drift loops
+                lastFrameTime = timestamp - ((timestamp - lastFrameTime) % frameInterval);
+                
+                const delta = clock.getDelta();
 
                 frameCount++;
                 const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -1122,7 +1126,6 @@
                     if (t >= 1) endTour();
                 }
 
-                if (autoRotate && splatMesh && isLoaded) splatMesh.rotation.y += 0.0006;
                 if (renderer && scene && camera) renderer.render(scene, camera);
             }
         }
@@ -1165,10 +1168,6 @@
             q.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
             camera.quaternion.copy(q);
 
-            autoRotate = false;
-            const autoBtn = document.getElementById('mobile-auto-rotate');
-            if (autoBtn) autoBtn.classList.remove('text-[#68f983]');
-
             if (wasGyroActive) {
                 // Keep gyro running — re-baseline to the new pose
                 gyroInitial = {
@@ -1186,38 +1185,9 @@
             console.log('%c[SplatViewer] Reset to default view pose', 'color:#68f983');
         }
 
-        function toggleAutoRotate() {
-            autoRotate = !autoRotate;
-            const desktopBtn = document.getElementById('auto-rotate-btn');
-            const mobileBtn  = document.getElementById('mobile-auto-rotate');
-            const text       = document.getElementById('auto-rotate-text');
-            if (desktopBtn) {
-                autoRotate ? desktopBtn.classList.add('!bg-white/10', 'text-[#68f983]')
-                           : desktopBtn.classList.remove('!bg-white/10', 'text-[#68f983]');
-            }
-            if (text)      text.textContent = autoRotate ? 'Rotating' : 'Auto-rotate';
-            if (mobileBtn) autoRotate ? mobileBtn.classList.add('text-[#68f983]') : mobileBtn.classList.remove('text-[#68f983]');
-            claimKeyboardFor3D();
-        }
-
-        // =====================================================
-        // GYROSCOPE — QUATERNION-BASED (v2)
-        //
-        // Converts raw W3C DeviceOrientation alpha/beta/gamma into a
-        // Three.js world quaternion each frame, then applies the relative
-        // delta from the baseline quaternion to the camera.
-        //
-        // No alpha/gamma source-switching, no drift, works at any
-        // phone orientation, handles portrait ↔ landscape correctly.
-        // =====================================================
-
         // World-frame correction: device Z-up → Three.js Y-up
         const _gyroCorrection = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
 
-        /**
-         * Converts raw W3C DeviceOrientation angles to a Three.js world quaternion.
-         * Handles screen rotation (portrait / landscape) automatically.
-         */
         function deviceOrientationToWorldQuat(alpha, beta, gamma) {
             const DEG2RAD    = Math.PI / 180;
             const screenAngle = (window.screen.orientation?.angle ?? window.orientation ?? 0) * DEG2RAD;
@@ -1229,9 +1199,7 @@
                 'YXZ'
             );
             const q = new THREE.Quaternion().setFromEuler(euler);
-            // Correct device Z-up to Three.js Y-up world frame
             q.multiply(_gyroCorrection);
-            // Correct for screen orientation (portrait=0, landscape=90, etc.)
             const screenQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -screenAngle);
             q.multiply(screenQ);
             return q;
@@ -1244,7 +1212,6 @@
             const beta  = event.beta  ?? 0;
             const gamma = event.gamma ?? 0;
 
-            // Some browsers fire with null/NaN on the first few events
             if (typeof alpha !== 'number' || isNaN(alpha)) return;
 
             lastDeviceAlpha = alpha;
@@ -1254,30 +1221,21 @@
             const currentDeviceQ = deviceOrientationToWorldQuat(alpha, beta, gamma);
 
             if (!gyroInitial) {
-                // First valid reading — capture baseline, apply on next frame (no jump)
                 gyroInitial = {
                     deviceQ: currentDeviceQ.clone(),
                     cameraQ: camera.quaternion.clone()
                 };
                 gyroHasReceivedData = true;
-                console.log('%c[SplatViewer] Gyro: baseline captured', 'color:#68f983');
                 return;
             }
 
-            // Relative rotation = how much the device has moved since baseline
             const deltaQ = gyroInitial.deviceQ.clone().invert().multiply(currentDeviceQ);
-
-            // Apply delta to the camera orientation captured at baseline
             const newQ = gyroInitial.cameraQ.clone().multiply(deltaQ);
 
-            // --- HORIZON LOCK ---
-            // Extract only yaw and pitch from the resulting quaternion, discarding
-            // any roll so the camera always stays level regardless of phone tilt.
             const euler = new THREE.Euler().setFromQuaternion(newQ, 'YXZ');
             yaw   = euler.y;
             pitch = Math.max(-Math.PI * 0.48, Math.min(Math.PI * 0.48, euler.x));
 
-            // Reconstruct with roll forced to zero
             const lockedQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
             camera.quaternion.copy(lockedQ);
         }
@@ -1347,12 +1305,6 @@
 
             claimKeyboardFor3D();
 
-            if (autoRotate) {
-                autoRotate = false;
-                const autoBtn = document.getElementById('mobile-auto-rotate');
-                if (autoBtn) autoBtn.classList.remove('text-[#68f983]');
-            }
-
             const granted = await requestGyroPermission();
             if (!granted) {
                 const msg = document.createElement('div');
@@ -1389,8 +1341,6 @@
                 confirm.style.opacity    = '0';
                 setTimeout(() => confirm.remove(), 180);
             }, 850);
-
-            console.log('%c[SplatViewer] Gyro mode enabled (quaternion-based)', 'color:#68f983');
 
             // Warn if no sensor data arrives within 1.8s
             setTimeout(() => {
@@ -1466,7 +1416,6 @@
                 item.innerHTML = `<i class="ph ph-map-pin text-[#68f983] text-base shrink-0"></i><span class="truncate">${view.name}</span>`;
                 item.addEventListener('click', () => {
                     if (typeof goToHighlight === 'function') goToHighlight(view.id);
-                    // Close mobile panel cleanly (removes outside handler too)
                     closeMobileHighlightsPanel();
                 });
                 container.appendChild(item);
@@ -1499,10 +1448,8 @@
             const list = document.getElementById('mobile-highlights-list');
 
             if (panel.classList.contains('hidden')) {
-                // Opening: show panel
                 panel.classList.remove('hidden');
 
-                // Make the highlights panel exactly the same width as the bottom controls bar
                 const controlsBar = document.getElementById('mobile-controls-bar-inner');
                 const highlightsCard = panel.querySelector('.floating-panel.glass-card');
                 if (controlsBar && highlightsCard) {
@@ -1516,16 +1463,13 @@
                     populateHighlightsList(list);
                 }
 
-                // Remove any stale outside handler
                 if (currentMobileHighlightsOutsideHandler) {
                     document.removeEventListener('click', currentMobileHighlightsOutsideHandler, true);
                     currentMobileHighlightsOutsideHandler = null;
                 }
 
-                // Add fresh outside click handler to close (capture phase)
                 setTimeout(() => {
                     const handler = function (ev) {
-                        // Ignore clicks on the Views button itself — it will handle toggling
                         const viewsBtn = document.getElementById('mobile-highlights-btn');
                         if (viewsBtn && viewsBtn.contains(ev.target)) {
                             return;
@@ -1541,7 +1485,6 @@
                     document.addEventListener('click', handler, true);
                 }, 10);
             } else {
-                // Clicking the Views button again while open → close it
                 closeMobileHighlightsPanel();
             }
         }
@@ -1556,16 +1499,16 @@
             return t;
         }
 
-        function animateCameraTo(targetPos, targetYaw, targetPitch, durationMs = 3500) {
+        function animateCameraTo(targetPos, targetYaw, targetPitch, durationMs = 3500, targetQuat = null) {
             if (!camera) return;
             disableGyro();
             if (isTourActive) {
-                endTour(); // fully clean tour state + hide the Stop pill
+                endTour();
             }
             const fromPos  = camera.position.clone();
             const fromQuat = camera.quaternion.clone();
             const toPos    = (targetPos instanceof THREE.Vector3) ? targetPos.clone() : new THREE.Vector3(targetPos[0], targetPos[1], targetPos[2]);
-            const toQuat   = new THREE.Quaternion().setFromEuler(new THREE.Euler(targetPitch, targetYaw, 0, 'YXZ'));
+            const toQuat   = targetQuat ? targetQuat.clone() : new THREE.Quaternion().setFromEuler(new THREE.Euler(targetPitch, targetYaw, 0, 'YXZ'));
             cameraTransition = {
                 startTime: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
                 duration:  Math.max(200, durationMs),
@@ -1578,7 +1521,8 @@
         function goToHighlight(id) {
             const view = HIGHLIGHT_VIEWS.find(v => v.id === id);
             if (!view || !camera) { console.warn('[Highlights] Unknown view or camera not ready:', id); return; }
-            animateCameraTo(view.position, view.yaw, view.pitch, 3500);
+            // Backported: Reuses precomputed spatial vectors and quaternions to completely avoid per-click allocations
+            animateCameraTo(view._vec, view.yaw, view.pitch, 3500, view._quat);
         }
 
         // --- Tour ---
@@ -1588,24 +1532,19 @@
             if (!camera || TOUR_PATH_KEYFRAMES.length < 2) { console.warn('[Tour] Not enough keyframes or camera not ready'); return; }
             disableGyro();
             cameraTransition = null;
-            tourPoints = TOUR_PATH_KEYFRAMES.map(kf => new THREE.Vector3(kf.position[0], kf.position[1], kf.position[2]));
-            tourQuats  = TOUR_PATH_KEYFRAMES.map(kf => new THREE.Quaternion().setFromEuler(new THREE.Euler(kf.pitch, kf.yaw, 0, 'YXZ')));
-            tourSegmentLengths    = [];
-            tourCumulativeLengths = [0];
-            let total = 0;
-            for (let i = 0; i < tourPoints.length - 1; i++) {
-                const dist = tourPoints[i].distanceTo(tourPoints[i + 1]);
-                tourSegmentLengths.push(dist);
-                total += dist;
-                tourCumulativeLengths.push(total);
-            }
-            tourTotalLength = total;
+            
+            // Backported: Hook immutable cache references straight to tracking loops instead of structural maps on invocation
+            tourPoints = cachedTourPoints;
+            tourQuats  = cachedTourQuats;
+            tourSegmentLengths    = cachedTourSegmentLengths;
+            tourCumulativeLengths = cachedTourCumulativeLengths;
+            tourTotalLength       = cachedTourTotalLength;
+            
             isTourActive    = true;
             isInputLocked   = true;
             tourStartTime   = (typeof performance !== 'undefined' ? performance.now() : Date.now());
             claimKeyboardFor3D();
             showTourStopPill();
-            // Hide mobile highlights panel cleanly if open
             closeMobileHighlightsPanel();
             console.log('%c[SplatViewer] Classroom tour started', 'color:#68f983');
         }
@@ -1615,7 +1554,6 @@
             disableGyro();
             isTourActive          = false;
             isInputLocked         = false;
-            tourCurve             = null;
             tourQuats             = null;
             tourPoints            = null;
             tourSegmentLengths    = null;
@@ -1642,7 +1580,6 @@
             tourStopPill.onclick   = () => endTour();
             document.body.appendChild(tourStopPill);
 
-            // Raise the mobile controls bar so it doesn't overlap the Stop Tour pill
             const controlsWrapper = document.getElementById('mobile-controls-wrapper');
             if (controlsWrapper) controlsWrapper.classList.add('tour-active');
         }
@@ -1651,7 +1588,6 @@
             if (tourStopPill && tourStopPill.parentNode) tourStopPill.parentNode.removeChild(tourStopPill);
             tourStopPill = null;
 
-            // Return the mobile controls bar to its original position
             const controlsWrapper = document.getElementById('mobile-controls-wrapper');
             if (controlsWrapper) controlsWrapper.classList.remove('tour-active');
         }
@@ -1905,6 +1841,8 @@
 
         async function init() {
             initThreeJS();
+            // Backported execution: Build spatial matrix lookups during cold boot sequence
+            precomputeSpatialMetrics();
             setupKeyboardShortcuts();
             restoreWarningState();
             renderHighlightsList();
@@ -1934,7 +1872,6 @@
         });
 
         // Expose to global scope for HTML onclick handlers and console debugging
-        window.toggleAutoRotate  = toggleAutoRotate;
         window.resetCamera       = resetCamera;
         window.resetToDefaultView = resetToDefaultView;
         window.toggleGyroMode    = toggleGyroMode;
@@ -1959,7 +1896,7 @@
         window.closeMobileHighlightsPanel = closeMobileHighlightsPanel;
 
         window.SPLAT_DEBUG = {
-            resetCamera, resetToDefaultView, toggleAutoRotate, toggleGyroMode,
+            resetCamera, resetToDefaultView, toggleGyroMode,
             frameSplat, setSplatQuality, setQualityLevel, captureCameraPose,
             goToHighlight, startClassroomTour, endTour, animateCameraTo,
             toggleHighlights, renderHighlightsList, toggleMobileHighlightsPanel, closeMobileHighlightsPanel,
@@ -1967,7 +1904,6 @@
             get gyroMode()            { return gyroMode; },
             get gyroHasReceivedData() { return gyroHasReceivedData; },
             HIGHLIGHT_VIEWS, TOUR_PATH_KEYFRAMES,
-            // Expose helper for console testing
             deviceOrientationToWorldQuat
         };
     </script>
