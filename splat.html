@@ -441,6 +441,7 @@
                          ('ontouchstart' in window) ||
                          (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
 
+        // Completely remove the desktop WASD / movement hint popup on mobile — not needed
         if (isMobile && viewerHints && viewerHints.parentNode) {
             viewerHints.parentNode.removeChild(viewerHints);
         }
@@ -467,6 +468,10 @@
             const existing = document.getElementById('splat-intro-modal') || document.getElementById('splat-help-modal');
             if (existing) existing.remove();
             currentOpenMenu = null;
+        }
+
+        function escapeHtml(str) {
+            return String(str || '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
         }
 
         let frameCount   = 0;
@@ -499,7 +504,7 @@
 
         // Gyroscope state
         let gyroMode             = false;
-        let gyroInitial          = null;
+        let gyroInitial          = null;   // { deviceQ, cameraQ } — quaternion-based
         let gyroListenerAttached = false;
         let gyroHasReceivedData  = false;
         let lastDeviceAlpha      = 0;
@@ -522,7 +527,7 @@
             { id: 'whole-room',     name: 'Whole room',       position: [24.3,   9.473, -2.955],   yaw:  1.6348, pitch: -0.2316 }
         ];
 
-        // Tour keyframes
+        // Tour keyframes configuration
         const TOUR_PATH_KEYFRAMES = [
             { position: [-24.518, 11.074,  1.526],  yaw: -1.2758, pitch: -0.2579 },
             { position: [ -8.334,  6.309, -4.413],  yaw: -1.4342, pitch: -0.1743 },
@@ -541,7 +546,7 @@
             { position: [  6.802, 10.577,-22.327],  yaw:  2.9504, pitch: -0.2249 }
         ];
 
-        // Runtime Precomputed Immutable Data (Eliminates GC pressure)
+        // Precomputed spatial structures to completely bypass GC tracking overhead
         let cachedTourPoints = [];
         let cachedTourQuats = [];
         let cachedTourSegmentLengths = [];
@@ -552,17 +557,15 @@
             cachedTourPoints = TOUR_PATH_KEYFRAMES.map(kf => new THREE.Vector3(kf.position[0], kf.position[1], kf.position[2]));
             cachedTourQuats  = TOUR_PATH_KEYFRAMES.map(kf => new THREE.Quaternion().setFromEuler(new THREE.Euler(kf.pitch, kf.yaw, 0, 'YXZ')));
             
-            cachedTourSegmentLengths = [];
-            cachedTourCumulativeLengths = [0];
-            let accumulatedLength = 0;
-            
+	    cachedTourCumulativeLengths = [0];
+            let total = 0;
             for (let i = 0; i < cachedTourPoints.length - 1; i++) {
-                const stepDistance = cachedTourPoints[i].distanceTo(cachedTourPoints[i + 1]);
-                cachedTourSegmentLengths.push(stepDistance);
-                accumulatedLength += stepDistance;
-                cachedTourCumulativeLengths.push(accumulatedLength);
+                const dist = cachedTourPoints[i].distanceTo(cachedTourPoints[i + 1]);
+                cachedTourSegmentLengths.push(dist);
+                total += dist;
+                cachedTourCumulativeLengths.push(total);
             }
-            cachedTourTotalLength = accumulatedLength;
+            cachedTourTotalLength = total;
 
             HIGHLIGHT_VIEWS.forEach(view => {
                 view._vec = new THREE.Vector3(view.position[0], view.position[1], view.position[2]);
@@ -574,10 +577,15 @@
         let isTourActive          = false;
         let cameraTransition      = null;
         let isInputLocked         = false;
+        let tourPoints            = null;
+        let tourQuats             = null;
+        let tourSegmentLengths    = null;
+        let tourCumulativeLengths = null;
+        let tourTotalLength       = 0;
         let tourStartTime         = 0;
         let tourDuration          = 60000;
 
-        // Mobile highlights panel outside-click handler
+        // Mobile highlights panel outside-click handler (for clean toggle)
         let currentMobileHighlightsOutsideHandler = null;
 
         // Load progress
@@ -608,6 +616,7 @@
         function hideLoadingOverlay() {
             loadingOverlay.classList.add('loading-hidden');
             setTimeout(() => {
+                // Only show the desktop movement hint on non-mobile
                 if (viewerHints && !isMobile) {
                     viewerHints.style.display = 'block';
                     setTimeout(() => { if (viewerHints) viewerHints.style.opacity = '0'; }, 4200);
@@ -617,12 +626,18 @@
 
         async function loadSplatWithProgress() {
             loadStartTime = Date.now();
+
             const REMOTE_SPLAT_URL = useRemote ? "https://assets.hellobruh.com/PLYcompressed.ply" : null;
             const candidates = useRemote ? [] : ['./PLYcompressed.ply', './Compressed.spz', './Newest.ply'];
 
+            console.log(`%c[SplatViewer] Mode: ${useRemote ? 'REMOTE (CDN)' : 'LOCAL'} | Host: ${window.location.hostname}`, 'color:#68f983');
+
+            // Show mode visibly (helps debug mobile LAN vs CDN issues)
             const modeEl = document.getElementById('loading-mode');
             if (modeEl) {
-                modeEl.textContent = useRemote ? 'REMOTE (CDN)' : 'LOCAL FILES • ' + window.location.hostname;
+                modeEl.textContent = useRemote
+                    ? 'REMOTE (CDN)'
+                    : 'LOCAL FILES • ' + window.location.hostname;
             }
 
             let splatURL = null;
@@ -634,6 +649,7 @@
             } else {
                 for (const file of candidates) {
                     try {
+                        // Direct GET — HEAD probes add latency with no practical benefit for large binary assets
                         response = await fetch(file);
                         if (response && response.ok) {
                             splatURL = file;
@@ -646,7 +662,12 @@
             }
 
             if (!splatURL || !response || !response.ok) {
-                throw new Error('Splat asset configuration payload resolution failed.');
+                throw new Error(
+                    'No splat file found.\n\n' +
+                    (useRemote
+                        ? '→ Running in REMOTE mode but the CDN file failed to load.\n   Check your internet connection.\n\n→ Tip: Add ?local to the URL to force local file loading.'
+                        : '→ Running in LOCAL mode.\n   Make sure PLYcompressed.ply or Newest.ply exists next to splat.html.')
+                );
             }
 
             try {
@@ -681,8 +702,32 @@
                 if (progressPercent) progressPercent.textContent = '100%';
                 if (progressTime)    progressTime.textContent    = 'finalizing...';
 
+                const progressLabel = document.querySelector('#loading-overlay .glass-card .flex.justify-between.text-xs.mb-2');
+                if (progressLabel) {
+                    progressLabel.innerHTML = '<div>Parsing &amp; uploading to GPU...</div><div class="font-mono tabular-nums">100%</div>';
+                }
+
+                if (progressFill) {
+                    progressFill.style.width = '100%';
+                    progressFill.style.transition = 'width 400ms ease, opacity 600ms';
+                    progressFill.style.opacity = '0.55';
+                    progressFill.animate(
+                        [{ opacity: 0.55 }, { opacity: 1 }, { opacity: 0.55 }],
+                        { duration: 1350, iterations: Infinity }
+                    );
+                }
+
+                let readyCheckAttempts = 0;
+                const checkIntervalMs  = 650;
+                // Mobile often needs more time for the large GPU upload even at Potato quality
+                const forceRevealAfterMs = 1000 * (isMobile ? 120 : 70);
+                const forceRevealAt    = Date.now() + forceRevealAfterMs;
+
                 const checkReady = setInterval(() => {
+                    readyCheckAttempts++;
+                    const now = Date.now();
                     let looksReady = false;
+
                     if (splatMesh) {
                         try {
                             if (splatMesh.geometry) {
@@ -690,22 +735,72 @@
                                 const pos   = attrs.position || attrs.center;
                                 if (pos && (pos.count > 50000 || pos.array)) looksReady = true;
                             }
+                            if (typeof splatMesh.count     === 'number' && splatMesh.count     > 50000) looksReady = true;
+                            if (typeof splatMesh.splatCount === 'number' && splatMesh.splatCount > 50000) looksReady = true;
+                            if (typeof splatMesh.numSplats  === 'number' && splatMesh.numSplats  > 50000) looksReady = true;
                             if (splatMesh.loaded === true || splatMesh.isLoaded === true) looksReady = true;
-                        } catch (e) {}
+                            if (splatMesh.material && splatMesh.material.uniforms)        looksReady = true;
+                            if (splatMesh._lastRenderFrame !== undefined)                 looksReady = true;
+                        } catch (e) { /* ignore */ }
                     }
 
-                    if (looksReady) {
+                    const shouldForce = now > forceRevealAt;
+
+                    if (looksReady || shouldForce) {
                         clearInterval(checkReady);
                         isLoaded = true;
+
+                        if (progressFill) {
+                            progressFill.getAnimations().forEach(a => a.cancel());
+                            progressFill.style.opacity = '1';
+                        }
+
                         setTimeout(() => { try { resetToDefaultView(); } catch (e) {} }, 280);
+
                         hideLoadingOverlay();
                         if (sizeWarning) sizeWarning.style.display = 'none';
                         setTimeout(() => { showControlsHint(); }, 1100);
+
+                        if (shouldForce) {
+                            console.warn('%c[SplatViewer] Forced reveal after timeout.', 'color:#f59e0b');
+                        }
                     }
-                }, 650);
+
+                    if (readyCheckAttempts % 20 === 0) console.log('[SplatViewer] Finalizing... attempts:', readyCheckAttempts);
+                }, checkIntervalMs);
 
             } catch (err) {
                 console.error('Splat loading error:', err);
+
+                // Show a helpful error instead of silently hiding (very common on mobile)
+                setTimeout(() => {
+                    if (loadingOverlay && !loadingOverlay.classList.contains('loading-hidden')) {
+                        loadingOverlay.innerHTML = `
+                            <div class="max-w-md w-full text-center px-6">
+                                <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/30 mb-4">
+                                    <i class="ph ph-warning text-3xl text-red-400"></i>
+                                </div>
+                                <h2 class="text-xl font-semibold tracking-tight text-red-400 mb-2">Failed to load the splat</h2>
+                                <div id="load-error-msg" class="text-sm text-gray-300 mb-4 whitespace-pre-line"></div>
+
+                                <div class="text-left text-xs bg-black/40 border border-white/10 rounded-xl p-4 mb-4">
+                                    <div class="font-semibold text-white/80 mb-1">Common on mobile:</div>
+                                    <ul class="list-disc pl-5 space-y-1 text-white/70">
+                                        <li>Accessing via LAN? Add <code class="text-[#68f983]">?remote</code> to the URL to use the CDN copy.</li>
+                                        <li>Make sure your local server is reachable from the phone (not just localhost).</li>
+                                        <li>Large files (292 MB) can be blocked by mobile data saver or strict firewalls.</li>
+                                        <li>Try a different browser (Chrome or Firefox recommended on Android).</li>
+                                    </ul>
+                                </div>
+
+                                <button onclick="location.reload()" class="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm active:bg-white/20">Reload page</button>
+                            </div>
+                        `;
+                        const errEl = document.getElementById('load-error-msg');
+                        if (errEl) errEl.textContent = (err && err.message) || 'Unknown error during download or GPU upload.';
+                    }
+                    if (!isLoaded) isLoaded = true;
+                }, 800);
             }
         }
 
@@ -733,8 +828,8 @@
             camera.quaternion.copy(q0);
 
             const qualityPreset = isMobile
-                ? { lodSplatScale: 0.26, lodSplatCount: 260_000, maxStdDev: 1.95 }
-                : { lodSplatScale: 0.42, lodSplatCount: 520_000, maxStdDev: 2.25 };
+                ? { lodSplatScale: 0.26, lodSplatCount: 260_000, maxStdDev: 1.95, name: 'Potato (forced on mobile)' }
+                : { lodSplatScale: 0.42, lodSplatCount: 520_000, maxStdDev: 2.25, name: 'Low (forced on desktop)' };
 
             spark = new SparkRenderer({
                 renderer,
@@ -745,10 +840,9 @@
             });
             scene.add(spark);
             currentQualityLevel = isMobile ? 'potato' : 'low';
+            console.log(`%c[SplatViewer] Quality forced to ${qualityPreset.name}`, 'color:#68f983');
 
             scene.fog = new THREE.Fog(0x0a0a0a, 8, 22);
-
-            precomputeSpatialMetrics();
 
             const canvas = renderer.domElement;
             if (!touchMoveVec) touchMoveVec = new THREE.Vector3();
@@ -783,7 +877,12 @@
             }
 
             function stopLookDrag() { isDraggingLook = false; canvas.style.cursor = ''; }
-            function onPointerUp(e) { if (e.button === 0) stopLookDrag(); }
+
+            function onPointerUp(e) {
+                if (e.button !== 0) return;
+                stopLookDrag();
+                try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+            }
 
             document.addEventListener('pointercancel', stopLookDrag);
             window.addEventListener('blur', stopLookDrag);
@@ -791,14 +890,22 @@
             window.addEventListener('pointermove', onPointerMove);
             window.addEventListener('pointerup',   onPointerUp);
 
+            // =====================================================
+            // MOBILE TOUCH CONTROLS
+            // =====================================================
             if (isMobile) {
                 function getTouchDistance(touches) {
                     if (touches.length < 2) return 0;
-                    return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+                    const dx = touches[0].clientX - touches[1].clientX;
+                    const dy = touches[0].clientY - touches[1].clientY;
+                    return Math.hypot(dx, dy);
                 }
                 function getTouchMidpoint(touches) {
                     if (touches.length < 2) return { x: 0, y: 0 };
-                    return { x: (touches[0].clientX + touches[1].clientX) / 2, y: (touches[0].clientY + touches[1].clientY) / 2 };
+                    return {
+                        x: (touches[0].clientX + touches[1].clientX) / 2,
+                        y: (touches[0].clientY + touches[1].clientY) / 2
+                    };
                 }
 
                 canvas.addEventListener('touchstart', (e) => {
@@ -844,14 +951,14 @@
                         right.crossVectors(forward, up).normalize();
                         const speed = 0.035;
                         if (Math.abs(dy) > Math.abs(dx)) {
-                            touchMoveVec.add(forward.multiplyScalar(-dy * speed));
+                            touchMoveVec.add(forward.clone().multiplyScalar(-dy * speed));
                         } else {
-                            touchMoveVec.add(right.multiplyScalar(dx * speed));
+                            touchMoveVec.add(right.clone().multiplyScalar(dx * speed));
                         }
                         const currentDist = getTouchDistance(touches);
                         if (lastPinchDistance > 0) {
                             const pinchDelta = currentDist - lastPinchDistance;
-                            touchMoveVec.add(up.multiplyScalar(pinchDelta * 0.028));
+                            touchMoveVec.add(up.clone().multiplyScalar(pinchDelta * 0.028));
                         }
                         lastPinchDistance = currentDist;
                         lastTouchX = mid.x;
@@ -865,13 +972,16 @@
                         touchLookActive = false;
                         touchMoveVec.set(0, 0, 0);
                         lastPinchDistance = 0;
+
                         if (gyroPausedByTouch) {
                             gyroPausedByTouch = false;
+                            // Re-baseline gyro so the phone's current physical orientation
                             if (gyroMode) {
                                 gyroInitial = {
                                     deviceQ: deviceOrientationToWorldQuat(lastDeviceAlpha, lastDeviceBeta, lastDeviceGamma),
                                     cameraQ: camera.quaternion.clone()
                                 };
+                                console.log('%c[SplatViewer] Gyro re-baselined after touch look (drag completed)', 'color:#68f983');
                             }
                         }
                     } else if (e.touches.length === 1) {
@@ -881,14 +991,64 @@
                         touchMoveVec.set(0, 0, 0);
                     }
                 });
+
+                canvas.addEventListener('touchcancel', () => {
+                    if (gyroPausedByTouch) {
+                        gyroPausedByTouch = false;
+                        if (gyroMode) {
+                            gyroInitial = {
+                                deviceQ: deviceOrientationToWorldQuat(lastDeviceAlpha, lastDeviceBeta, lastDeviceGamma),
+                                cameraQ: camera.quaternion.clone()
+                            };
+                        }
+                    }
+                    touchLookActive = false;
+                    touchMoveVec.set(0, 0, 0);
+                    lastPinchDistance = 0;
+                });
             }
 
+            window.addEventListener('orientationchange', () => {
+                if (gyroMode && gyroInitial) {
+                    gyroInitial = null;
+                    gyroHasReceivedData = false;
+                }
+            });
+
+            function initYawPitchFromCamera() {
+                const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+                yaw   = euler.y;
+                pitch = euler.x;
+            }
+            setTimeout(() => { if (camera) initYawPitchFromCamera(); }, 50);
+
+            window.addEventListener('resize', onResize);
+            onResize();
+
+            window.addEventListener('beforeunload', () => {
+                if (gyroListenerAttached) window.removeEventListener('deviceorientation', onDeviceOrientation);
+            });
+
+            lastFpsUpdate = (typeof performance !== 'undefined' ? performance.now() : Date.now());
             renderer.setAnimationLoop(animate);
+
+            setTimeout(() => { if (viewerHints && !isMobile && !isLoaded) viewerHints.style.opacity = '0.6'; }, 6500);
+
+            console.log('[SplatViewer] Mobile:', isMobile ? 'yes (Potato forced)' : 'no (Low forced)');
+        }
+
+        function onResize() {
+            if (!renderer || !camera) return;
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
         }
 
         function animate(timestamp = 0) {
             if (timestamp - lastFrameTime >= frameInterval) {
-                // Correct for refresh mismatch remainder to anchor high-refresh-rate outputs at 60fps
+                // Precise timing anchor correction to stop high refresh drift loops
                 lastFrameTime = timestamp - ((timestamp - lastFrameTime) % frameInterval);
                 
                 const delta = clock.getDelta();
@@ -921,7 +1081,7 @@
                         camera.position.add(_vMove);
                     }
 
-                    if (isMobile && touchMoveVec && touchMoveVec.lengthSq() > 0) {
+                    if (isMobile && touchMoveVec && touchMoveVec.lengthSq() > 0 && !isInputLocked) {
                         const touchSpeed = 42;
                         _vTemp.copy(touchMoveVec).multiplyScalar(touchSpeed * delta);
                         camera.position.add(_vTemp);
@@ -944,29 +1104,53 @@
                     }
                 }
 
-                if (isTourActive && cachedTourTotalLength > 0 && camera) {
+                if (isTourActive && tourPoints && tourQuats && tourTotalLength > 0 && camera) {
                     const elapsed = now - tourStartTime;
                     let t = Math.min(elapsed / tourDuration, 1);
                     t = tourEase(t);
-                    const targetDistance = t * cachedTourTotalLength;
+                    const targetDistance = t * tourTotalLength;
                     let seg    = 0;
                     let localT = 0;
-                    for (let i = 0; i < cachedTourSegmentLengths.length; i++) {
-                        if (targetDistance <= cachedTourCumulativeLengths[i + 1]) {
+                    for (let i = 0; i < tourSegmentLengths.length; i++) {
+                        if (targetDistance <= tourCumulativeLengths[i + 1]) {
                             seg    = i;
-                            const distInSeg = targetDistance - cachedTourCumulativeLengths[i];
-                            localT = cachedTourSegmentLengths[i] > 0 ? distInSeg / cachedTourSegmentLengths[i] : 0;
+                            const distInSeg = targetDistance - tourCumulativeLengths[i];
+                            localT = tourSegmentLengths[i] > 0 ? distInSeg / tourSegmentLengths[i] : 0;
                             break;
                         }
                     }
-                    if (targetDistance >= cachedTourTotalLength) { seg = cachedTourSegmentLengths.length - 1; localT = 1; }
-                    camera.position.lerpVectors(cachedTourPoints[seg], cachedTourPoints[seg + 1], localT);
-                    _qTemp.slerpQuaternions(cachedTourQuats[seg], cachedTourQuats[seg + 1], localT);
+                    if (targetDistance >= tourTotalLength) { seg = tourSegmentLengths.length - 1; localT = 1; }
+                    camera.position.lerpVectors(tourPoints[seg], tourPoints[seg + 1], localT);
+                    _qTemp.slerpQuaternions(tourQuats[seg], tourQuats[seg + 1], localT);
                     camera.quaternion.copy(_qTemp);
                     if (t >= 1) endTour();
                 }
 
                 if (renderer && scene && camera) renderer.render(scene, camera);
+            }
+        }
+
+        function frameSplat() {
+            if (!splatMesh || !camera) return;
+            try {
+                const box    = new THREE.Box3().setFromObject(splatMesh);
+                const center = box.getCenter(new THREE.Vector3());
+                const size   = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z) || 5.0;
+                const dist   = maxDim * 0.85;
+                camera.up.set(0, 1, 0);
+                camera.position.set(center.x + dist * 0.1, center.y + dist * 2.2, center.z + dist * 0.8);
+                camera.lookAt(center.x, center.y + 1.5, center.z + 8);
+                const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+                yaw   = euler.y;
+                pitch = euler.x;
+            } catch (e) {
+                camera.up.set(0, 1, 0);
+                camera.position.set(0.5, 5.5, 0.8);
+                camera.lookAt(0, 1.0, 0);
+                const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+                yaw   = euler.y;
+                pitch = euler.x;
             }
         }
 
@@ -985,24 +1169,35 @@
             camera.quaternion.copy(q);
 
             if (wasGyroActive) {
+                // Keep gyro running — re-baseline to the new pose
                 gyroInitial = {
                     deviceQ: deviceOrientationToWorldQuat(lastDeviceAlpha, lastDeviceBeta, lastDeviceGamma),
                     cameraQ: camera.quaternion.clone()
                 };
+                console.log('%c[SplatViewer] Gyro re-baselined after reset (gyro stayed active)', 'color:#68f983');
             } else {
                 disableGyro();
                 const resetBtn = document.getElementById('mobile-reset-default');
                 if (resetBtn) resetBtn.classList.add('hidden');
             }
+
             claimKeyboardFor3D();
+            console.log('%c[SplatViewer] Reset to default view pose', 'color:#68f983');
         }
 
+        // World-frame correction: device Z-up → Three.js Y-up
         const _gyroCorrection = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
 
         function deviceOrientationToWorldQuat(alpha, beta, gamma) {
             const DEG2RAD    = Math.PI / 180;
             const screenAngle = (window.screen.orientation?.angle ?? window.orientation ?? 0) * DEG2RAD;
-            const euler = new THREE.Euler(beta * DEG2RAD, alpha * DEG2RAD, -gamma * DEG2RAD, 'YXZ');
+
+            const euler = new THREE.Euler(
+                beta  * DEG2RAD,
+                alpha * DEG2RAD,
+                -gamma * DEG2RAD,
+                'YXZ'
+            );
             const q = new THREE.Quaternion().setFromEuler(euler);
             q.multiply(_gyroCorrection);
             const screenQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -screenAngle);
@@ -1012,9 +1207,11 @@
 
         function onDeviceOrientation(event) {
             if (!gyroMode || !camera || isInputLocked || gyroPausedByTouch) return;
+
             const alpha = event.alpha;
             const beta  = event.beta  ?? 0;
             const gamma = event.gamma ?? 0;
+
             if (typeof alpha !== 'number' || isNaN(alpha)) return;
 
             lastDeviceAlpha = alpha;
@@ -1022,48 +1219,102 @@
             lastDeviceGamma = gamma;
 
             const currentDeviceQ = deviceOrientationToWorldQuat(alpha, beta, gamma);
+
             if (!gyroInitial) {
-                gyroInitial = { deviceQ: currentDeviceQ.clone(), cameraQ: camera.quaternion.clone() };
+                gyroInitial = {
+                    deviceQ: currentDeviceQ.clone(),
+                    cameraQ: camera.quaternion.clone()
+                };
                 gyroHasReceivedData = true;
                 return;
             }
 
             const deltaQ = gyroInitial.deviceQ.clone().invert().multiply(currentDeviceQ);
             const newQ = gyroInitial.cameraQ.clone().multiply(deltaQ);
+
             const euler = new THREE.Euler().setFromQuaternion(newQ, 'YXZ');
             yaw   = euler.y;
             pitch = Math.max(-Math.PI * 0.48, Math.min(Math.PI * 0.48, euler.x));
-            camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+
+            const lockedQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+            camera.quaternion.copy(lockedQ);
         }
 
         function disableGyro() {
             if (!gyroMode) return;
+
             gyroMode            = false;
             gyroInitial         = null;
             gyroHasReceivedData = false;
+
             if (gyroListenerAttached) {
                 window.removeEventListener('deviceorientation', onDeviceOrientation);
                 gyroListenerAttached = false;
             }
+
             const hint = document.getElementById('mobile-controls-hint');
             if (hint) hint.textContent = 'Drag 1 finger to look • 2 fingers to move';
+
             const gyroBtn = document.getElementById('mobile-gyro');
             if (gyroBtn) gyroBtn.classList.remove('text-[#68f983]');
+
             const resetBtn = document.getElementById('mobile-reset-default');
             if (resetBtn) resetBtn.classList.add('hidden');
+
+            console.log('[SplatViewer] Gyro mode disabled');
+        }
+
+        async function requestGyroPermission() {
+            if (typeof DeviceOrientationEvent !== 'undefined' &&
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    return permission === 'granted';
+                } catch (err) {
+                    console.warn('[SplatViewer] Gyro permission request failed:', err);
+                    return false;
+                }
+            }
+            return true;
         }
 
         async function toggleGyroMode() {
-            if (!isMobile) return;
-            if (gyroMode) { disableGyro(); return; }
-            claimKeyboardFor3D();
+            const gyroBtn = document.getElementById('mobile-gyro');
+            const hintEl  = document.getElementById('mobile-controls-hint');
 
-            let granted = true;
-            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                try { granted = (await DeviceOrientationEvent.requestPermission()) === 'granted'; } catch (e) { granted = false; }
+            if (!isMobile) {
+                const debugBox = document.createElement('div');
+                debugBox.className = `fixed bottom-20 left-1/2 -translate-x-1/2 z-[99999] max-w-[320px] px-4 py-3 rounded-2xl text-xs bg-red-600/95 text-white font-medium shadow-2xl`;
+                debugBox.innerHTML = `
+                    <div style="font-weight:700;margin-bottom:6px">Gyro blocked — not detected as mobile</div>
+                    <div>isMobile = <span style="color:#ffeb3b">false</span></div>
+                    <div style="opacity:0.9;margin-top:4px">userAgent: ${navigator.userAgent.slice(0,80)}...</div>
+                    <div style="margin-top:6px;font-size:10px;opacity:0.85">Touch points: ${navigator.maxTouchPoints || 0} &nbsp;|&nbsp; ontouchstart: ${'ontouchstart' in window}</div>
+                    <div style="margin-top:8px;font-size:10px">Try: Chrome menu → "Desktop site" (turn OFF) then reload</div>
+                `;
+                document.body.appendChild(debugBox);
+                setTimeout(() => {
+                    debugBox.style.transition = 'opacity 400ms';
+                    debugBox.style.opacity    = '0';
+                    setTimeout(() => debugBox.remove(), 300);
+                }, 6500);
+                return;
             }
 
-            if (!granted) return;
+            if (gyroMode) { disableGyro(); return; }
+
+            claimKeyboardFor3D();
+
+            const granted = await requestGyroPermission();
+            if (!granted) {
+                const msg = document.createElement('div');
+                msg.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-2 rounded-2xl text-sm bg-black/75 border border-white/25 text-white/90`;
+                msg.textContent = 'Gyro not available (permission denied or unsupported device)';
+                document.body.appendChild(msg);
+                setTimeout(() => msg.remove(), 2800);
+                return;
+            }
+
             if (isTourActive) endTour();
             gyroMode            = true;
             gyroInitial         = null;
@@ -1074,10 +1325,38 @@
                 gyroListenerAttached = true;
             }
 
-            const gyroBtn = document.getElementById('mobile-gyro');
             if (gyroBtn) gyroBtn.classList.add('text-[#68f983]');
+
             const resetBtn = document.getElementById('mobile-reset-default');
             if (resetBtn) resetBtn.classList.remove('hidden');
+
+            if (hintEl) hintEl.textContent = 'Gyro active — drag 1 finger to fine-tune view';
+
+            const confirm = document.createElement('div');
+            confirm.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-1.5 rounded-2xl text-xs bg-[#68f983]/90 text-black font-medium shadow-lg`;
+            confirm.textContent = 'Gyro enabled';
+            document.body.appendChild(confirm);
+            setTimeout(() => {
+                confirm.style.transition = 'opacity 280ms ease';
+                confirm.style.opacity    = '0';
+                setTimeout(() => confirm.remove(), 180);
+            }, 850);
+
+            // Warn if no sensor data arrives within 1.8s
+            setTimeout(() => {
+                if (gyroMode && !gyroHasReceivedData) {
+                    console.warn('%c[SplatViewer] WARNING: no deviceorientation events after 1.8s', 'color:#f59e0b');
+                    const warn = document.createElement('div');
+                    warn.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-4 py-2.5 rounded-2xl text-sm bg-amber-500/95 text-black font-medium max-w-[300px] text-center shadow-xl`;
+                    warn.innerHTML = `Gyro not receiving data<br><span style="font-size:10px">Check device orientation permissions or try again</span>`;
+                    document.body.appendChild(warn);
+                    setTimeout(() => {
+                        warn.style.transition = 'opacity 300ms';
+                        warn.style.opacity    = '0';
+                        setTimeout(() => warn.remove(), 200);
+                    }, 5200);
+                }
+            }, 1800);
         }
 
         function toggleFullscreen() {
@@ -1090,24 +1369,42 @@
         }
 
         function captureCameraPose() {
-            if (!camera) return;
+            if (!camera) { console.warn('[SplatViewer] Cannot capture pose — camera not ready'); return; }
             const pos   = camera.position;
             const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
-            console.log(JSON.stringify({
+            const pose  = {
                 position:   [+pos.x.toFixed(3), +pos.y.toFixed(3), +pos.z.toFixed(3)],
                 yaw:        +euler.y.toFixed(4),
-                pitch:      +euler.x.toFixed(4)
-            }, null, 2));
+                pitch:      +euler.x.toFixed(4),
+                quaternion: [
+                    +camera.quaternion.x.toFixed(4),
+                    +camera.quaternion.y.toFixed(4),
+                    +camera.quaternion.z.toFixed(4),
+                    +camera.quaternion.w.toFixed(4)
+                ]
+            };
+            console.log('%c[Camera Pose — copy into HIGHLIGHT_VIEWS or TOUR_PATH_KEYFRAMES]', 'color:#68f983; font-weight:600');
+            console.log(JSON.stringify(pose, null, 2));
+            claimKeyboardFor3D();
         }
 
+        // --- Highlights panel ---
         let highlightsExpanded = true;
+
         function toggleHighlights() {
             highlightsExpanded = !highlightsExpanded;
             const list    = document.getElementById('highlights-list');
             const chevron = document.getElementById('highlights-chevron');
             if (!list || !chevron) return;
-            list.style.display = highlightsExpanded ? '' : 'none';
-            chevron.className = highlightsExpanded ? 'ph ph-caret-down text-base text-white/60 transition-transform' : 'ph ph-caret-up text-base text-white/60 transition-transform';
+            if (highlightsExpanded) {
+                list.style.display = '';
+                chevron.classList.remove('ph-caret-up');
+                chevron.classList.add('ph-caret-down');
+            } else {
+                list.style.display = 'none';
+                chevron.classList.remove('ph-caret-down');
+                chevron.classList.add('ph-caret-up');
+            }
         }
 
         function populateHighlightsList(container) {
@@ -1118,7 +1415,7 @@
                 item.className = 'flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/15 active:bg-white/10 cursor-pointer text-sm transition-colors';
                 item.innerHTML = `<i class="ph ph-map-pin text-[#68f983] text-base shrink-0"></i><span class="truncate">${view.name}</span>`;
                 item.addEventListener('click', () => {
-                    goToHighlight(view.id);
+                    if (typeof goToHighlight === 'function') goToHighlight(view.id);
                     closeMobileHighlightsPanel();
                 });
                 container.appendChild(item);
@@ -1152,20 +1449,36 @@
 
             if (panel.classList.contains('hidden')) {
                 panel.classList.remove('hidden');
+
                 const controlsBar = document.getElementById('mobile-controls-bar-inner');
                 const highlightsCard = panel.querySelector('.floating-panel.glass-card');
                 if (controlsBar && highlightsCard) {
-                    highlightsCard.style.width = controlsBar.offsetWidth + 'px';
+                    const barWidth = controlsBar.offsetWidth;
+                    highlightsCard.style.width = barWidth + 'px';
                     highlightsCard.style.maxWidth = 'none';
                     highlightsCard.style.minWidth = '0';
                 }
-                if (list && list.children.length === 0) populateHighlightsList(list);
+
+                if (list && list.children.length === 0) {
+                    populateHighlightsList(list);
+                }
+
+                if (currentMobileHighlightsOutsideHandler) {
+                    document.removeEventListener('click', currentMobileHighlightsOutsideHandler, true);
+                    currentMobileHighlightsOutsideHandler = null;
+                }
 
                 setTimeout(() => {
                     const handler = function (ev) {
                         const viewsBtn = document.getElementById('mobile-highlights-btn');
-                        if (viewsBtn && viewsBtn.contains(ev.target)) return;
-                        if (!panel || panel.classList.contains('hidden') || panel.contains(ev.target)) return;
+                        if (viewsBtn && viewsBtn.contains(ev.target)) {
+                            return;
+                        }
+                        if (!panel || panel.classList.contains('hidden') || panel.contains(ev.target)) {
+                            document.removeEventListener('click', handler, true);
+                            currentMobileHighlightsOutsideHandler = null;
+                            return;
+                        }
                         closeMobileHighlightsPanel();
                     };
                     currentMobileHighlightsOutsideHandler = handler;
@@ -1176,7 +1489,9 @@
             }
         }
 
+        // --- Camera transition easing ---
         function cubicBezierEase(t) { return t * t * (3 - 2 * t); }
+
         function tourEase(t) {
             const ramp = 0.055;
             if (t < ramp)       return ramp * (t / ramp) * (t / ramp);
@@ -1187,15 +1502,17 @@
         function animateCameraTo(targetPos, targetYaw, targetPitch, durationMs = 3500, targetQuat = null) {
             if (!camera) return;
             disableGyro();
-            if (isTourActive) endTour();
-            
+            if (isTourActive) {
+                endTour();
+            }
+            const fromPos  = camera.position.clone();
+            const fromQuat = camera.quaternion.clone();
+            const toPos    = (targetPos instanceof THREE.Vector3) ? targetPos.clone() : new THREE.Vector3(targetPos[0], targetPos[1], targetPos[2]);
+            const toQuat   = targetQuat ? targetQuat.clone() : new THREE.Quaternion().setFromEuler(new THREE.Euler(targetPitch, targetYaw, 0, 'YXZ'));
             cameraTransition = {
                 startTime: (typeof performance !== 'undefined' ? performance.now() : Date.now()),
                 duration:  Math.max(200, durationMs),
-                fromPos:   camera.position.clone(),
-                toPos:     targetPos.clone(),
-                fromQuat:  camera.quaternion.clone(),
-                toQuat:    targetQuat ? targetQuat.clone() : new THREE.Quaternion().setFromEuler(new THREE.Euler(targetPitch, targetYaw, 0, 'YXZ'))
+                fromPos, toPos, fromQuat, toQuat
             };
             isInputLocked = true;
             claimKeyboardFor3D();
@@ -1203,29 +1520,45 @@
 
         function goToHighlight(id) {
             const view = HIGHLIGHT_VIEWS.find(v => v.id === id);
-            if (!view || !camera) return;
+            if (!view || !camera) { console.warn('[Highlights] Unknown view or camera not ready:', id); return; }
+            // Backported: Reuses precomputed spatial vectors and quaternions to completely avoid per-click allocations
             animateCameraTo(view._vec, view.yaw, view.pitch, 3500, view._quat);
         }
 
+        // --- Tour ---
         let tourStopPill = null;
 
         function startClassroomTour() {
-            if (!camera || TOUR_PATH_KEYFRAMES.length < 2) return;
+            if (!camera || TOUR_PATH_KEYFRAMES.length < 2) { console.warn('[Tour] Not enough keyframes or camera not ready'); return; }
             disableGyro();
             cameraTransition = null;
-
+            
+            // Backported: Hook immutable cache references straight to tracking loops instead of structural maps on invocation
+            tourPoints = cachedTourPoints;
+            tourQuats  = cachedTourQuats;
+            tourSegmentLengths    = cachedTourSegmentLengths;
+            tourCumulativeLengths = cachedTourCumulativeLengths;
+            tourTotalLength       = cachedTourTotalLength;
+            
             isTourActive    = true;
             isInputLocked   = true;
             tourStartTime   = (typeof performance !== 'undefined' ? performance.now() : Date.now());
             claimKeyboardFor3D();
             showTourStopPill();
             closeMobileHighlightsPanel();
+            console.log('%c[SplatViewer] Classroom tour started', 'color:#68f983');
         }
 
         function endTour() {
             if (!isTourActive) return;
+            disableGyro();
             isTourActive          = false;
             isInputLocked         = false;
+            tourQuats             = null;
+            tourPoints            = null;
+            tourSegmentLengths    = null;
+            tourCumulativeLengths = null;
+            tourTotalLength       = 0;
             if (camera) {
                 const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
                 yaw   = euler.y;
@@ -1233,6 +1566,7 @@
             }
             hideTourStopPill();
             closeMobileHighlightsPanel();
+            console.log('[SplatViewer] Tour ended');
         }
 
         function showTourStopPill() {
@@ -1240,6 +1574,7 @@
             tourStopPill = document.createElement('div');
             tourStopPill.id        = 'tour-stop-pill';
             tourStopPill.className = `fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 px-4 py-2 rounded-2xl text-sm floating-panel glass-card border border-[#68f983]/40 cursor-pointer select-none`;
+            tourStopPill.style.transition = 'none';
             tourStopPill.style.transform  = 'translateX(-50%)';
             tourStopPill.innerHTML = `<i class="ph ph-stop text-[#68f983]"></i><span class="font-medium">Stop tour</span>`;
             tourStopPill.onclick   = () => endTour();
@@ -1252,125 +1587,325 @@
         function hideTourStopPill() {
             if (tourStopPill && tourStopPill.parentNode) tourStopPill.parentNode.removeChild(tourStopPill);
             tourStopPill = null;
+
             const controlsWrapper = document.getElementById('mobile-controls-wrapper');
             if (controlsWrapper) controlsWrapper.classList.remove('tour-active');
         }
 
+        function setSplatQuality(count) {
+            if (!splatMesh) return;
+            if (typeof splatMesh.maxSplats === 'number') splatMesh.maxSplats = count;
+            claimKeyboardFor3D();
+        }
+
+        function setQualityLevel(level) {
+            if (!spark) return;
+            const presets = {
+                potato: { lodSplatScale: 0.26, lodSplatCount: 260_000,   maxStdDev: 1.95, label: 'Potato' },
+                low:    { lodSplatScale: 0.42, lodSplatCount: 520_000,   maxStdDev: 2.25, label: 'Low'    },
+                medium: { lodSplatScale: 0.68, lodSplatCount: 950_000,   maxStdDev: 2.55, label: 'Medium' },
+                high:   { lodSplatScale: 0.95, lodSplatCount: 1_600_000, maxStdDev: 2.75, label: 'High'   }
+            };
+            const p = presets[level] || presets.low;
+            currentQualityLevel = level;
+            if (typeof spark.lodSplatScale === 'number') spark.lodSplatScale = p.lodSplatScale;
+            if (typeof spark.lodSplatCount  === 'number') spark.lodSplatCount  = p.lodSplatCount;
+            if (typeof spark.maxStdDev      === 'number') spark.maxStdDev      = p.maxStdDev;
+            if (splatMesh) {
+                if (typeof splatMesh.lodScale  === 'number') splatMesh.lodScale  = p.lodSplatScale;
+                if (typeof splatMesh.maxSplats === 'number') splatMesh.maxSplats = p.lodSplatCount;
+            }
+            claimKeyboardFor3D();
+            console.log(`[SplatViewer] Quality → ${p.label}`);
+        }
+
         function updateFpsDisplay() {
             const el = document.getElementById('fps-counter');
-            if (!el || !fpsVisible) return;
-            el.style.color  = currentFps >= 55 ? '#68f983' : currentFps >= 40 ? '#fbbf24' : '#f87171';
+            if (!el) return;
+            if (!fpsVisible) { el.style.display = 'none'; return; }
+            el.style.display = '';
+            let color = '#f87171';
+            if (currentFps >= 55)      color = '#68f983';
+            else if (currentFps >= 40) color = '#fbbf24';
+            else if (currentFps >= 30) color = '#fb923c';
+            el.style.color  = color;
             el.textContent  = currentFps + ' FPS';
+        }
+
+        function toggleFpsCounter() {
+            fpsVisible = !fpsVisible;
+            const el = document.getElementById('fps-counter');
+            if (el) el.style.display = fpsVisible ? '' : 'none';
+            claimKeyboardFor3D();
         }
 
         function showHelp() {
             if (currentOpenMenu === 'help') { closeAnyOpenMenu(); return; }
             closeAnyOpenMenu();
+            const existingHint = document.getElementById('controls-hint');
+            if (existingHint) existingHint.remove();
             const modal = document.createElement('div');
             modal.id        = 'splat-help-modal';
             modal.className = `fixed inset-0 bg-black/20 backdrop-blur-md z-[85] flex items-center justify-center p-4 sm:p-6`;
             modal.innerHTML = `
                 <div class="glass-card intro-popup-card rounded-3xl w-full max-w-lg overflow-hidden border-2 border-white ring-1 ring-[#68f983]/50 bg-[#0a0a0a]/95 shadow-2xl">
                     <div class="p-7">
-                        <div class="text-xl font-semibold tracking-tight mb-5">Controls</div>
+                        <div class="flex items-center justify-between mb-5">
+                            <div class="text-xl font-semibold tracking-tight">Controls</div>
+                        </div>
                         <div class="space-y-3.5 text-sm">
                             <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0 font-medium">WASD</div><div>Fly / move camera</div></div>
-                            <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0 font-medium">Mouse drag</div><div>Look around</div></div>
-                            <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0 font-medium">E / Q</div><div>Up / Down</div></div>
-                            <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0 font-medium">Shift</div><div>Speed boost</div></div>
-                            <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0"><span class="shortcut">R</span></div><div>Reset view</div></div>
+                            <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0 font-medium">Mouse drag</div><div>Look around (left click + drag)</div></div>
+                            <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0 font-medium">E / Q</div><div>Straight up / straight down</div></div>
+                            <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0 font-medium">Shift</div><div>Big speed boost</div></div>
+                            <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0"><span class="shortcut">R</span></div><div>Reset camera position</div></div>
+                            <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0"><span class="shortcut">F</span></div><div>Toggle fullscreen</div></div>
+                            <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0">FPS</div><div>Top-right pill (click to hide). Aim for 35+ FPS.</div></div>
+                            <div class="pt-3 border-t border-white/20 text-[12px] text-gray-400">On mobile / touch:</div>
+                            <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0">1 finger</div><div>Drag to look around (works alongside Gyro for fine adjustment)</div></div>
+                            <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0">2 fingers</div><div>Drag vertical = forward/back • Horizontal = strafe • Pinch = up/down</div></div>
+                            <div class="flex gap-4"><div class="w-9 text-right text-gray-400 shrink-0"><i class="ph ph-compass"></i></div><div><span class="font-medium">Gyro</span> button — tilt phone to look. 1-finger drag still works for fine tuning.</div></div>
                         </div>
+                    </div>
+                    <div class="bg-white/5 px-7 py-4 text-xs text-gray-400 border-t border-white/20">
+                        Quality is locked (Potato on phones/tablets, Low on desktop) for best compatibility and performance.
                     </div>
                 </div>
             `;
             document.body.appendChild(modal);
             currentOpenMenu = 'help';
             modal.addEventListener('click', (e) => { if (e.target === modal) closeAnyOpenMenu(); });
+            const xBtn = document.createElement('button');
+            xBtn.textContent = '×';
+            xBtn.className   = 'text-gray-400 hover:text-[#68f983] text-4xl leading-none select-none transition-colors';
+            xBtn.style.cssText = 'position:absolute;right:22px;top:14px';
+            xBtn.addEventListener('click', () => closeAnyOpenMenu(), { once: true });
+            modal.querySelector('.glass-card').appendChild(xBtn);
+            document.addEventListener('keydown', function handleEsc(e) {
+                if (e.key === 'Escape') { closeAnyOpenMenu(); document.removeEventListener('keydown', handleEsc); }
+            }, { once: true });
         }
 
         function dismissSizeWarning() {
             if (sizeWarning) {
-                sizeWarning.style.opacity = '0';
+                sizeWarning.style.transition = 'opacity 200ms';
+                sizeWarning.style.opacity    = '0';
                 setTimeout(() => sizeWarning.remove(), 220);
             }
             localStorage.setItem('splatSizeWarningDismissed', 'true');
         }
 
         function showIntroPopup() {
+            const existingHint = document.getElementById('controls-hint');
+            if (existingHint) existingHint.remove();
             if (currentOpenMenu === 'instructions') { closeAnyOpenMenu(); return; }
             closeAnyOpenMenu();
+
             const modal = document.createElement('div');
             modal.id        = 'splat-intro-modal';
             modal.className = `fixed inset-0 bg-black/20 backdrop-blur-md z-[85] flex items-center justify-center p-4 sm:p-6`;
             modal.innerHTML = `
-                <div class="glass-card intro-popup-card rounded-3xl w-full max-w-[500px] overflow-hidden border-2 border-white ring-1 ring-[#68f983]/50 bg-[#0a0a0a]/95 shadow-2xl">
-                    <div class="p-6 space-y-5 text-sm">
-                        <div class="text-lg font-semibold">Instructions</div>
-                        <div class="space-y-2 text-[13.5px]">
-                            <div><span class="font-medium">WASD</span> — Move</div>
-                            <div><span class="font-medium">Drag</span> — Look Around</div>
+                <div class="glass-card intro-popup-card rounded-3xl w-full max-w-[500px] overflow-hidden border-2 border-white ring-1 ring-[#68f983]/50 bg-[#0a0a0a]/95 shadow-2xl" data-intro-version="2026-05-27-v5">
+                    <div class="px-6 pt-5 pb-3">
+                        <div class="text-lg font-semibold tracking-tight">Instructions:</div>
+                    </div>
+                    <div class="px-6 pb-6 space-y-5 text-sm">
+                        <div>
+                            <div class="text-[10px] uppercase tracking-widest text-white/50 mb-2">Desktop</div>
+                            <div class="space-y-2 text-[13.5px]">
+                                <div class="flex items-center gap-3"><div class="w-6 shrink-0 text-white/80"><i class="ph ph-mouse text-lg"></i></div><div><span class="font-medium">Drag</span> <span class="text-white/60">— Look around</span></div></div>
+                                <div class="flex items-center gap-3"><div class="w-6 shrink-0 font-mono text-xs text-white/60 pt-0.5">WASD</div><div><span class="font-medium">WASD</span> <span class="text-white/60">— Fly &amp; strafe</span></div></div>
+                                <div class="flex items-center gap-3"><div class="w-6 shrink-0 text-white/80"><i class="ph ph-arrows-vertical text-lg"></i></div><div><span class="font-medium">E / Q</span> <span class="text-white/60">— Up / Down</span></div></div>
+                                <div class="flex items-center gap-3"><div class="w-6 shrink-0 text-white/80"><i class="ph ph-lightning text-lg"></i></div><div><span class="font-medium">Shift</span> <span class="text-white/60">— Speed boost</span></div></div>
+                                <div class="flex items-center gap-3 pt-0.5 text-xs text-white/50"><div class="w-6 shrink-0"><span class="shortcut">R</span></div><div>Reset &nbsp;•&nbsp; <span class="shortcut">F</span> Fullscreen &nbsp;•&nbsp; <span class="shortcut">H</span> Help</div></div>
+                            </div>
                         </div>
+                        <div class="pt-3 border-t border-white/20">
+                            <div class="text-[10px] uppercase tracking-widest text-white/50 mb-2">Touch</div>
+                            <div class="space-y-1.5 text-[13.5px] text-white/90">
+                                <div><span class="font-medium text-white">1 finger drag</span> <span class="text-white/60">— Look around (works even with Gyro active for fine tuning)</span></div>
+                                <div><span class="font-medium text-white">2 fingers</span> <span class="text-white/60">— Move (vertical/horizontal drag, pinch up/down)</span></div>
+                                <div><span class="font-medium text-white">Gyro button</span> <span class="text-white/60">— Tilt/rotate phone to control camera. Drag 1 finger anytime to fine-tune.</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white/5 px-6 py-4 border-t border-white/20 flex justify-end">
+                        <div id="intro-actions"></div>
                     </div>
                 </div>
             `;
             document.body.appendChild(modal);
             currentOpenMenu = 'instructions';
+
             modal.addEventListener('click', (e) => { if (e.target === modal) closeAnyOpenMenu(); });
+
+            const actionsContainer = modal.querySelector('#intro-actions');
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = 'Close';
+            closeBtn.className   = 'px-6 py-1.5 rounded-2xl bg-white/10 hover:bg-[#68f983]/10 hover:text-[#68f983] active:bg-white/20 text-white transition-colors font-medium text-sm';
+            closeBtn.addEventListener('click', () => closeAnyOpenMenu(), { once: true });
+            actionsContainer.appendChild(closeBtn);
+
+            const xBtn = document.createElement('button');
+            xBtn.textContent = '×';
+            xBtn.className   = 'text-gray-400 hover:text-[#68f983] text-4xl leading-none select-none transition-colors';
+            xBtn.style.cssText = 'position:absolute;right:22px;top:14px';
+            xBtn.addEventListener('click', () => closeAnyOpenMenu(), { once: true });
+            modal.querySelector('.glass-card').appendChild(xBtn);
+
+            document.addEventListener('keydown', function handleEsc(e) {
+                if (e.key === 'Escape') { closeAnyOpenMenu(); document.removeEventListener('keydown', handleEsc); }
+            }, { once: true });
         }
 
         function showControlsHint() {
-            if (isMobile) return;
+            if (isMobile) return; // Remove "Press I for Instructions" hint on mobile
+            if (document.getElementById('splat-intro-modal')) return;
             const hint = document.createElement('div');
             hint.id        = 'controls-hint';
             hint.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-6 py-2.5 rounded-2xl text-sm text-white/85 bg-black/75 border border-white/25 backdrop-blur-lg flex items-center gap-2 shadow-xl`;
             hint.innerHTML = `<span>Press <span class="font-semibold text-white">I</span> for Instructions</span>`;
             document.body.appendChild(hint);
-            setTimeout(() => { if (hint.parentNode) hint.parentNode.removeChild(hint); }, 8000);
+            setTimeout(() => {
+                if (hint && hint.parentNode) {
+                    hint.style.transition = 'opacity 400ms ease';
+                    hint.style.opacity    = '0';
+                    setTimeout(() => { if (hint && hint.parentNode) hint.parentNode.removeChild(hint); }, 450);
+                }
+            }, 8000);
         }
 
         function setupKeyboardShortcuts() {
             document.addEventListener('keydown', (e) => {
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-                switch (e.key.toLowerCase()) {
+                const k = e.key.toLowerCase();
+                switch (k) {
                     case 'r': claimKeyboardFor3D(); resetCamera(); break;
+                    case 'a': break;
                     case 'f': toggleFullscreen(); break;
-                    case 'h': case '?': currentOpenMenu === 'help' ? closeAnyOpenMenu() : showHelp(); break;
-                    case 'i': currentOpenMenu === 'instructions' ? closeAnyOpenMenu() : showIntroPopup(); break;
+                    case 'h':
+                    case '?':
+                        currentOpenMenu === 'help' ? closeAnyOpenMenu() : (closeAnyOpenMenu(), showHelp());
+                        break;
+                    case 'i':
+                        currentOpenMenu === 'instructions' ? closeAnyOpenMenu() : (closeAnyOpenMenu(), showIntroPopup());
+                        break;
                     case 'o': captureCameraPose(); break;
-                    case 'escape': if (isTourActive) endTour(); break;
+                    case 'escape':
+                        if (document.fullscreenElement) {
+                            document.exitFullscreen();
+                        } else if (isTourActive || cameraTransition) {
+                            if (isTourActive) endTour();
+                            if (cameraTransition) {
+                                if (camera) {
+                                    camera.position.copy(cameraTransition.toPos);
+                                    camera.quaternion.copy(cameraTransition.toQuat);
+                                    const e2 = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+                                    yaw   = e2.y;
+                                    pitch = e2.x;
+                                }
+                                cameraTransition = null;
+                                isInputLocked    = isTourActive;
+                            }
+                        }
+                        break;
                 }
             });
 
-            const movementKeys = ['w', 's', 'a', 'd', 'e', 'q', 'shift'];
-            document.addEventListener('keydown', (e) => {
+            const movementKeys = ['w', 'a', 's', 'd', 'e', 'q', 'shift'];
+
+            function handleMovementKey(e, isDown) {
                 const k = e.key.toLowerCase();
-                if (movementKeys.includes(k)) { keys[k] = true; if (k !== 'shift') e.preventDefault(); }
-            });
-            document.addEventListener('keyup', (e) => {
-                const k = e.key.toLowerCase();
-                if (movementKeys.includes(k)) keys[k] = false;
-            });
+                if (k === 'shift' || movementKeys.includes(k)) {
+                    claimKeyboardFor3D();
+                    if (k === 'shift') { keys['shift'] = isDown; }
+                    else { keys[k] = isDown; e.preventDefault(); }
+                }
+            }
+
+            document.addEventListener('keydown', (e) => handleMovementKey(e, true));
+            document.addEventListener('keyup',   (e) => handleMovementKey(e, false));
+
+            container.addEventListener('pointerdown', () => claimKeyboardFor3D());
+
+            container.addEventListener('pointerdown', () => {
+                if (viewerHints) viewerHints.style.display = 'none';
+            }, { once: true });
+        }
+
+        function restoreWarningState() {
+            if (localStorage.getItem('splatSizeWarningDismissed') === 'true' && sizeWarning) {
+                sizeWarning.style.display = 'none';
+            }
         }
 
         async function init() {
             initThreeJS();
+            // Backported execution: Build spatial matrix lookups during cold boot sequence
+            precomputeSpatialMetrics();
             setupKeyboardShortcuts();
-            if (localStorage.getItem('splatSizeWarningDismissed') === 'true' && sizeWarning) sizeWarning.style.display = 'none';
+            restoreWarningState();
             renderHighlightsList();
             await loadSplatWithProgress();
         }
 
-        init().catch(err => { console.error(err); });
+        init().catch(err => {
+            console.error('Failed to initialize viewer:', err);
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) {
+                overlay.innerHTML = `
+                    <div class="max-w-md w-full text-center px-6">
+                        <div class="text-red-400 mb-3 text-lg font-semibold">Failed to initialize viewer</div>
+                        <div id="init-error-msg" class="text-sm text-gray-300 mb-4 whitespace-pre-line"></div>
+                        <div class="text-xs text-gray-400 bg-black/40 border border-white/10 rounded-xl p-4 text-left">
+                            Common fixes:<br>
+                            • Use a local web server (not file://)<br>
+                            • On mobile: try adding <code class="text-[#68f983]">?remote</code> to the URL<br>
+                            • Check browser console for WebGL / import errors
+                        </div>
+                        <button onclick="location.reload()" class="mt-4 px-5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-sm">Reload</button>
+                    </div>
+                `;
+                const errEl = document.getElementById('init-error-msg');
+                if (errEl) errEl.textContent = (err && err.message) || 'Unknown error';
+            }
+        });
 
-        window.resetCamera = resetCamera;
+        // Expose to global scope for HTML onclick handlers and console debugging
+        window.resetCamera       = resetCamera;
         window.resetToDefaultView = resetToDefaultView;
-        window.toggleGyroMode = toggleGyroMode;
-        window.showHelp = showHelp;
-        window.showIntroPopup = showIntroPopup;
-        window.startClassroomTour = startClassroomTour;
-        window.endTour = endTour;
+        window.toggleGyroMode    = toggleGyroMode;
+        window.gyroDebug = {
+            get state() { return { gyroMode, gyroHasReceivedData, gyroInitial }; },
+            forceDisable: () => disableGyro()
+        };
+        window.setSplatQuality     = setSplatQuality;
+        window.setQualityLevel     = setQualityLevel;
+        window.toggleFpsCounter    = toggleFpsCounter;
+        window.showHelp            = showHelp;
+        window.frameSplat          = frameSplat;
+        window.showIntroPopup      = showIntroPopup;
+        window.captureCameraPose   = captureCameraPose;
+        window.goToHighlight       = goToHighlight;
+        window.startClassroomTour  = startClassroomTour;
+        window.endTour             = endTour;
+        window.animateCameraTo     = animateCameraTo;
+        window.toggleHighlights    = toggleHighlights;
+        window.renderHighlightsList = renderHighlightsList;
         window.toggleMobileHighlightsPanel = toggleMobileHighlightsPanel;
         window.closeMobileHighlightsPanel = closeMobileHighlightsPanel;
+
+        window.SPLAT_DEBUG = {
+            resetCamera, resetToDefaultView, toggleGyroMode,
+            frameSplat, setSplatQuality, setQualityLevel, captureCameraPose,
+            goToHighlight, startClassroomTour, endTour, animateCameraTo,
+            toggleHighlights, renderHighlightsList, toggleMobileHighlightsPanel, closeMobileHighlightsPanel,
+            isMobile, isLocalMode: !useRemote,
+            get gyroMode()            { return gyroMode; },
+            get gyroHasReceivedData() { return gyroHasReceivedData; },
+            HIGHLIGHT_VIEWS, TOUR_PATH_KEYFRAMES,
+            deviceOrientationToWorldQuat
+        };
     </script>
 </body>
 </html>
